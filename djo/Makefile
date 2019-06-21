@@ -7,9 +7,12 @@ CXX_INCLUDES = -I.. -I../depends/libff -I../depends/libfqfft -I../depends/libff/
 djo: main.cpp
 	c++ $(CXX_INCLUDES) $(CXX_DEFINES) $(CXX_FLAGS) -o djo main.cpp ../build/libsnark/libsnark.a ../build/depends/libff/libff/libff.a /usr/lib/x86_64-linux-gnu/libgmp.so -lgmp -lgmpxx -lcrypto -lprocps ../build/depends/libzm.a 2> /dev/null
 
+build:
+	c++ $(CXX_INCLUDES) $(CXX_DEFINES) $(CXX_FLAGS) -o djo main.cpp ../build/libsnark/libsnark.a ../build/depends/libff/libff/libff.a /usr/lib/x86_64-linux-gnu/libgmp.so -lgmp -lgmpxx -lcrypto -lprocps ../build/depends/libzm.a
+
 test: djo
-	./djo 2> test > /dev/null
-	less test
+	./djo > test
+	vim test
 
 clean:
-	rm djo test
+	rm -f test djo

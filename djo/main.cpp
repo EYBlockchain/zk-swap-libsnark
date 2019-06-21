@@ -61,29 +61,32 @@ void test_verifier(const std::string &annotation_A, const std::string &annotatio
     // At this stage, Witness is calculated since we evaluate all intermediate wires
 
     // Setup Circuit
-    const r1cs_ppzksnark_keypair<ppT_A> keypair = r1cs_ppzksnark_generator<ppT_A>(pb_A.get_constraint_system());
+    const r1cs_ppzksnark_keypair<ppT_A> setup_A = r1cs_ppzksnark_generator<ppT_A>(pb_A.get_constraint_system());
 
     // Generate Proof
-    const r1cs_ppzksnark_proof<ppT_A> pi = r1cs_ppzksnark_prover<ppT_A>(keypair.pk, pb_A.primary_input(), pb_A.auxiliary_input()); // primary is public
+    const r1cs_ppzksnark_proof<ppT_A> proof_A = r1cs_ppzksnark_prover<ppT_A>(setup_A.pk, pb_A.primary_input(), pb_A.auxiliary_input()); // primary is public
+
+    proof_A.g_A.g.print();
 
     // Verify Proof
-    bool verified = r1cs_ppzksnark_verifier_strong_IC<ppT_A>(keypair.vk, pb_A.primary_input(), pi);
+    bool proof_ok_A = r1cs_ppzksnark_verifier_strong_IC<ppT_A>(setup_A.vk, pb_A.primary_input(), proof_A);
 
-    if (verified) {
-        std::cerr << "Simple Proof : OK\n";
+    if (proof_ok_A) {
+        std::cout << "Simple Proof : OK\n";
     } else {
-        std::cerr << "Simple Proof : KO\n";
+        std::cout << "Simple Proof : KO\n";
     }
 
 
     typedef libff::Fr<ppT_B> FieldT_B;
 
+    // TODO
     const size_t primary_input_size = pb_A.primary_input().size();
     const size_t elt_size = FieldT_A::size_in_bits();
     const size_t primary_input_size_in_bits = elt_size * primary_input_size;
     const size_t vk_size_in_bits = r1cs_ppzksnark_verification_key_variable<ppT_B>::size_in_bits(primary_input_size);
 
-    protoboard<FieldT_B> pb;
+    protoboard<FieldT_B> pb_B;
 
     // Define Wires
     pb_variable_array<FieldT_B> vk_bits;
@@ -91,41 +94,58 @@ void test_verifier(const std::string &annotation_A, const std::string &annotatio
     pb_variable<FieldT_B> result;
 
     // Allocate Wires
-    vk_bits.allocate(pb, vk_size_in_bits, "vk_bits");
-    primary_input_bits.allocate(pb, primary_input_size_in_bits, "primary_input_bits");
-    result.allocate(pb, "result");
+    vk_bits.allocate(pb_B, vk_size_in_bits, "vk_bits");
+    primary_input_bits.allocate(pb_B, primary_input_size_in_bits, "primary_input_bits");
+    result.allocate(pb_B, "result");
 
     // Helpers
-    r1cs_ppzksnark_verification_key_variable<ppT_B> vk(pb, vk_bits, primary_input_size, "vk");
-    r1cs_ppzksnark_proof_variable<ppT_B> proof(pb, "proof");
-    r1cs_ppzksnark_verifier_gadget<ppT_B> verifier(pb, vk, primary_input_bits, elt_size, proof, result, "verifier");
+    r1cs_ppzksnark_verification_key_variable<ppT_B> vk_var(pb_B, vk_bits, primary_input_size, "vk");
+    r1cs_ppzksnark_proof_variable<ppT_B> proof_var(pb_B, "proof");
+    r1cs_ppzksnark_verifier_gadget<ppT_B> B_gadget(pb_B, vk_var, primary_input_bits, elt_size, proof_var, result, "verifier");
 
-    // Build Circuit
-    PROFILE_CONSTRAINTS(pb, "check that proofs lies on the curve")
+    // Build Circuit TODO
+    PROFILE_CONSTRAINTS(pb_B, "check that proofs lies on the curve")
     {
-        proof.generate_r1cs_constraints();
+        proof_var.generate_r1cs_constraints();
     }
-    verifier.generate_r1cs_constraints();
+    B_gadget.generate_r1cs_constraints();
 
-    // Evaluate Circuit (Witness)
+    // Evaluate Circuit (Witness) TODO
     libff::bit_vector input_as_bits;
     for (const FieldT_A &el : pb_A.primary_input())
     {
         libff::bit_vector v = libff::convert_field_element_to_bit_vector<FieldT_A>(el, elt_size);
         input_as_bits.insert(input_as_bits.end(), v.begin(), v.end());
     }
-    primary_input_bits.fill_with_bits(pb, input_as_bits);
+    primary_input_bits.fill_with_bits(pb_B, input_as_bits);
 
     // Calculate Witness
-    vk.generate_r1cs_witness(keypair.vk);
-    proof.generate_r1cs_witness(pi);
-    verifier.generate_r1cs_witness();
-    pb.val(result) = FieldT_B::one();
+    vk_var.generate_r1cs_witness(setup_A.vk);
+    proof_var.generate_r1cs_witness(proof_A);
 
-    if (pb.is_satisfied()) {
-        std::cerr << "Recursive Proof : OK\n";
+    // std::cout << "Proof value\n";
+    // proof_A.g_A.g.print();
+    // std::cout << "Gate value\n";
+    // std::cout << pb_B.lc_val((*proof_var.g_A_g).X) << "\n";
+
+    B_gadget.generate_r1cs_witness();
+    pb_B.val(result) = FieldT_B::one();
+
+    // Setup Circuit
+    const r1cs_ppzksnark_keypair<ppT_B> setup_B = r1cs_ppzksnark_generator<ppT_B>(pb_B.get_constraint_system());
+
+    // Generate Proof
+    const r1cs_ppzksnark_proof<ppT_B> proof_B = r1cs_ppzksnark_prover<ppT_B>(setup_B.pk, pb_B.primary_input(), pb_B.auxiliary_input()); // primary is public
+
+    // Verify Proof
+    bool proof_ok_B = r1cs_ppzksnark_verifier_strong_IC<ppT_B>(setup_B.vk, pb_B.primary_input(), proof_B);
+
+    proof_B.g_A.g.print();
+
+    if (proof_ok_B) {
+        std::cout << "Recursive Proof : OK\n";
     } else {
-        std::cerr << "Recursive Proof : KO\n";
+        std::cout << "Recursive Proof : KO\n";
     }
 }
 
@@ -134,12 +154,5 @@ int main(void)
     libff::start_profiling();
     libff::mnt4_pp::init_public_params();
     libff::mnt6_pp::init_public_params();
-
-    std::cerr << "***** Test of recursive SNARKs over MNT4-6 curves *****" << "\n";
-
-    std::cerr << "proof over mnt4 + proof of proof over mnt6" << "\n";
     test_verifier<libff::mnt4_pp, libff::mnt6_pp>("mnt4", "mnt6");
-
-    std::cerr << "proof over mnt6 + proof of proof over mnt4" << "\n";
-    test_verifier<libff::mnt6_pp, libff::mnt4_pp>("mnt6", "mnt4");
 }
