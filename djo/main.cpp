@@ -26,26 +26,23 @@ void test_verifier(const std::string &annotation_A, const std::string &annotatio
 {
     // Protoboard to prove `x^3 + x + 5 == y`
     typedef libff::Fr<ppT_A> FieldT_A;
-
-    // Describe Circuit
     protoboard<FieldT_A> pb_A;
 
     // Define Wires
     pb_variable<FieldT_A> x;
-    pb_variable<FieldT_A> t1;
-    pb_variable<FieldT_A> t2;
-    pb_variable<FieldT_A> t3;
-    pb_variable<FieldT_A> y;
-
-    // Allocate Wires
-    y.allocate(pb_A, "y");
     x.allocate(pb_A, "x");
+    pb_variable<FieldT_A> t1;
     t1.allocate(pb_A, "t1");
+    pb_variable<FieldT_A> t2;
     t2.allocate(pb_A, "t2");
+    pb_variable<FieldT_A> t3;
     t3.allocate(pb_A, "t3");
+    pb_variable<FieldT_A> y;
+    y.allocate(pb_A, "y");
 
     pb_A.set_input_sizes(1); // first n inputs are public
 
+    // Define Constraints
     pb_A.add_r1cs_constraint(r1cs_constraint<FieldT_A>(x, x, t1));
     pb_A.add_r1cs_constraint(r1cs_constraint<FieldT_A>(t1, x, t2));
     pb_A.add_r1cs_constraint(r1cs_constraint<FieldT_A>(t2 + x, 1, t3));
@@ -66,10 +63,16 @@ void test_verifier(const std::string &annotation_A, const std::string &annotatio
     // Generate Proof
     const r1cs_ppzksnark_proof<ppT_A> proof_A = r1cs_ppzksnark_prover<ppT_A>(setup_A.pk, pb_A.primary_input(), pb_A.auxiliary_input()); // primary is public
 
-    proof_A.g_A.g.print();
-
     // Verify Proof
     bool proof_ok_A = r1cs_ppzksnark_verifier_strong_IC<ppT_A>(setup_A.vk, pb_A.primary_input(), proof_A);
+
+    // DEBUG
+    proof_A.g_B.g.print();
+
+    std::cout << pb_A.num_constraints() << "\n";
+    std::cout << pb_A.num_inputs() << "\n";
+    std::cout << pb_A.num_variables() << "\n";
+    std::cout << pb_A.constraint_system.primary_input_size << "\n";
 
     if (proof_ok_A) {
         std::cout << "Simple Proof : OK\n";
@@ -79,38 +82,34 @@ void test_verifier(const std::string &annotation_A, const std::string &annotatio
 
 
     typedef libff::Fr<ppT_B> FieldT_B;
-
-    // TODO
-    const size_t primary_input_size = pb_A.primary_input().size();
-    const size_t elt_size = FieldT_A::size_in_bits();
-    const size_t primary_input_size_in_bits = elt_size * primary_input_size;
-    const size_t vk_size_in_bits = r1cs_ppzksnark_verification_key_variable<ppT_B>::size_in_bits(primary_input_size);
-
     protoboard<FieldT_B> pb_B;
+
+    const size_t primary_input_size = pb_A.primary_input().size();
 
     // Define Wires
     pb_variable_array<FieldT_B> vk_bits;
-    pb_variable_array<FieldT_B> primary_input_bits;
-    pb_variable<FieldT_B> result;
-
-    // Allocate Wires
+    const size_t vk_size_in_bits = r1cs_ppzksnark_verification_key_variable<ppT_B>::size_in_bits(primary_input_size);
     vk_bits.allocate(pb_B, vk_size_in_bits, "vk_bits");
+
+    pb_variable_array<FieldT_B> primary_input_bits;
+    const size_t elt_size = FieldT_A::size_in_bits();
+    const size_t primary_input_size_in_bits = elt_size * primary_input_size;
     primary_input_bits.allocate(pb_B, primary_input_size_in_bits, "primary_input_bits");
+
+    pb_variable<FieldT_B> result;
     result.allocate(pb_B, "result");
 
-    // Helpers
+    // Define Constraints
     r1cs_ppzksnark_verification_key_variable<ppT_B> vk_var(pb_B, vk_bits, primary_input_size, "vk");
+    vk_var.generate_r1cs_constraints(false);
     r1cs_ppzksnark_proof_variable<ppT_B> proof_var(pb_B, "proof");
-    r1cs_ppzksnark_verifier_gadget<ppT_B> B_gadget(pb_B, vk_var, primary_input_bits, elt_size, proof_var, result, "verifier");
+    proof_var.generate_r1cs_constraints();
 
-    // Build Circuit TODO
-    PROFILE_CONSTRAINTS(pb_B, "check that proofs lies on the curve")
-    {
-        proof_var.generate_r1cs_constraints();
-    }
+    r1cs_ppzksnark_verifier_gadget<ppT_B> B_gadget(pb_B, vk_var, primary_input_bits, elt_size, proof_var, result, "verifier");
     B_gadget.generate_r1cs_constraints();
 
-    // Evaluate Circuit (Witness) TODO
+    // Evaluate Circuit
+    // => Kind of copy last wire (public) from circuit A
     libff::bit_vector input_as_bits;
     for (const FieldT_A &el : pb_A.primary_input())
     {
@@ -118,16 +117,9 @@ void test_verifier(const std::string &annotation_A, const std::string &annotatio
         input_as_bits.insert(input_as_bits.end(), v.begin(), v.end());
     }
     primary_input_bits.fill_with_bits(pb_B, input_as_bits);
-
-    // Calculate Witness
+    // => Fill values from vk and proof of circuit A
     vk_var.generate_r1cs_witness(setup_A.vk);
     proof_var.generate_r1cs_witness(proof_A);
-
-    // std::cout << "Proof value\n";
-    // proof_A.g_A.g.print();
-    // std::cout << "Gate value\n";
-    // std::cout << pb_B.lc_val((*proof_var.g_A_g).X) << "\n";
-
     B_gadget.generate_r1cs_witness();
     pb_B.val(result) = FieldT_B::one();
 
@@ -140,7 +132,13 @@ void test_verifier(const std::string &annotation_A, const std::string &annotatio
     // Verify Proof
     bool proof_ok_B = r1cs_ppzksnark_verifier_strong_IC<ppT_B>(setup_B.vk, pb_B.primary_input(), proof_B);
 
-    proof_B.g_A.g.print();
+    // DEBUG
+    proof_B.g_B.g.print();
+
+    std::cout << pb_B.num_constraints() << "\n";
+    std::cout << pb_B.num_inputs() << "\n";
+    std::cout << pb_B.num_variables() << "\n";
+    std::cout << pb_B.constraint_system.primary_input_size << "\n";
 
     if (proof_ok_B) {
         std::cout << "Recursive Proof : OK\n";
