@@ -96,7 +96,7 @@ size_t r1cs_ppzksnark_proof_variable<ppT>::size()
 {
     const size_t num_G1 = 7;
     const size_t num_G2 = 1;
-    return (num_G1 * G1_variable<ppT>::num_field_elems + num_G2 * G2_variable<ppT>::num_field_elems);
+    return (num_G1 * G1_variable<ppT>::num_variables() + num_G2 * G2_variable<ppT>::num_variables());
 }
 
 template<typename ppT>

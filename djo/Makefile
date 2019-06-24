@@ -4,11 +4,11 @@ CXX_DEFINES = -DBINARY_OUTPUT -DBN_SUPPORT_SNARK=1 -DCURVE_BN128 -DMONTGOMERY_OU
 
 CXX_INCLUDES = -I.. -I../depends/libff -I../depends/libfqfft -I../depends/libff/libff/.. -isystem /usr/include/x86_64-linux-gnu
 
-djo: main.cpp
-	c++ $(CXX_INCLUDES) $(CXX_DEFINES) $(CXX_FLAGS) -o djo main.cpp ../build/libsnark/libsnark.a ../build/depends/libff/libff/libff.a /usr/lib/x86_64-linux-gnu/libgmp.so -lgmp -lgmpxx -lcrypto -lprocps ../build/depends/libzm.a 2> /dev/null
-
-build:
+force-build:
 	c++ $(CXX_INCLUDES) $(CXX_DEFINES) $(CXX_FLAGS) -o djo main.cpp ../build/libsnark/libsnark.a ../build/depends/libff/libff/libff.a /usr/lib/x86_64-linux-gnu/libgmp.so -lgmp -lgmpxx -lcrypto -lprocps ../build/depends/libzm.a
+
+djo: main.cpp aggregator_circuit.hpp aggregator_circuit.tcc
+	c++ $(CXX_INCLUDES) $(CXX_DEFINES) $(CXX_FLAGS) -o djo main.cpp ../build/libsnark/libsnark.a ../build/depends/libff/libff/libff.a /usr/lib/x86_64-linux-gnu/libgmp.so -lgmp -lgmpxx -lcrypto -lprocps ../build/depends/libzm.a 2> /dev/null
 
 test: djo
 	./djo > test
