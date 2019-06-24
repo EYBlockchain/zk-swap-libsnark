@@ -61,6 +61,30 @@ protoboard<libff::Fr<ppT>> djo_build_example_1()
     return pb;
 }
 
+template<typename ppT>
+protoboard<libff::Fr<ppT>> djo_build_example_2()
+{
+    // Protoboard to prove `a^2 = b` where `b` is public
+    typedef libff::Fr<ppT> FieldT;
+    protoboard<FieldT> pb = protoboard<FieldT>();
+
+    // Define Wires
+    pb_variable<FieldT> a;
+    a.allocate(pb, "a");
+    pb_variable<FieldT> b;
+    b.allocate(pb, "b");
+
+    pb.set_input_sizes(1); // first n inputs are public
+
+    // Define Constraints
+    pb.add_r1cs_constraint(r1cs_constraint<FieldT>(a, a, b));
+
+    // Evaluate Circuit
+    pb.val(b) = 1745041 ;// public
+    pb.val(a) = 1321;
+
+    return pb;
+}
 
 template<typename ppT>
 r1cs_ppzksnark_keypair<ppT> djo_setup(const protoboard<libff::Fr<ppT>> pb)
@@ -70,21 +94,22 @@ r1cs_ppzksnark_keypair<ppT> djo_setup(const protoboard<libff::Fr<ppT>> pb)
 }
 
 template<typename ppT>
-r1cs_ppzksnark_proof<ppT> djo_generate_proof(const protoboard<libff::Fr<ppT>> pb, const r1cs_ppzksnark_keypair<ppT> keypair)
+r1cs_ppzksnark_proof<ppT> djo_generate_proof(const protoboard<libff::Fr<ppT>> pb, const r1cs_ppzksnark_proving_key<ppT> proving_key)
 {
-    const r1cs_ppzksnark_proof<ppT> proof = r1cs_ppzksnark_prover<ppT>(keypair.pk, pb.primary_input(), pb.auxiliary_input());
+    const r1cs_ppzksnark_proof<ppT> proof = r1cs_ppzksnark_prover<ppT>(proving_key, pb.primary_input(), pb.auxiliary_input());
     return proof;
 }
 
 template<typename ppT>
-bool djo_verify(const protoboard<libff::Fr<ppT>> pb, const r1cs_ppzksnark_keypair<ppT> keypair, const r1cs_ppzksnark_proof<ppT> proof)
+bool djo_verify(const protoboard<libff::Fr<ppT>> pb, const r1cs_ppzksnark_verification_key<ppT> verification_key, const r1cs_ppzksnark_proof<ppT> proof)
 {
-    return r1cs_ppzksnark_verifier_strong_IC<ppT>(keypair.vk, pb.primary_input(), proof);
+    return r1cs_ppzksnark_verifier_strong_IC<ppT>(verification_key, pb.primary_input(), proof);
 }
 
 template<typename ppT>
 void djo_trace(const protoboard<libff::Fr<ppT>> pb, const r1cs_ppzksnark_keypair<ppT> keypair, const r1cs_ppzksnark_proof<ppT> proof)
 {
+    std::cout << "proof.g_B_g:\n";
     proof.g_B.g.print();
     std::cout << "num_constraints   :" << pb.num_constraints() << "\n";
     std::cout << "num_inputs        :" << pb.num_inputs() << "\n";
@@ -97,18 +122,19 @@ void djo_batch()
 {
     using FieldT_A = libff::Fr<ppT_A>;
 
-    protoboard<FieldT_A> pb = djo_build_example_1<ppT_A>();
-    r1cs_ppzksnark_keypair<ppT_A> keypair = djo_setup<ppT_A>(pb);
-    r1cs_ppzksnark_proof<ppT_A> proof = djo_generate_proof<ppT_A>(pb, keypair);
-    bool ok = djo_verify<ppT_A>(pb, keypair, proof);
-    if (ok) {
-        std::cout << "Simple Proof OK\n";
-    } else {
-        std::cout << "Simple Proof KO\n";
-    }
-    djo_trace<ppT_A>(pb, keypair, proof);
+    // Simple proof 1
+    protoboard<FieldT_A> pb1 = djo_build_example_1<ppT_A>();
+    r1cs_ppzksnark_keypair<ppT_A> keypair1 = djo_setup<ppT_A>(pb1);
+    r1cs_ppzksnark_proof<ppT_A> proof1 = djo_generate_proof<ppT_A>(pb1, keypair1.pk);
+    bool ok1 = djo_verify<ppT_A>(pb1, keypair1.vk, proof1);
 
-
+    // Simple proof 2 (different)
+    protoboard<FieldT_A> pb2 = djo_build_example_2<ppT_A>();
+    r1cs_ppzksnark_keypair<ppT_A> keypair2 = djo_setup<ppT_A>(pb2);
+    r1cs_ppzksnark_proof<ppT_A> proof2 = djo_generate_proof<ppT_A>(pb2, keypair2.pk);
+    bool ok2 = djo_verify<ppT_A>(pb2, keypair2.vk, proof2);
+    
+    // Aggregation
     aggregator_circuit<ppT_A, ppT_B> aggregator(2);
     aggregator.generate_r1cs_constraints();
 
@@ -116,18 +142,39 @@ void djo_batch()
     vector<r1cs_primary_input<FieldT_A>> inputs;
     vector<r1cs_ppzksnark_proof<ppT_A>> proofs;
 
-    for(size_t k=0; k<2; k++)
-    {
-        vks.emplace_back(keypair.vk);
-        inputs.emplace_back(pb.primary_input());
-        proofs.emplace_back(proof);
-    }
+    vks.emplace_back(keypair1.vk);
+    vks.emplace_back(keypair2.vk);
+
+    inputs.emplace_back(pb1.primary_input());
+    inputs.emplace_back(pb2.primary_input());
+    
+    proofs.emplace_back(proof1);
+    proofs.emplace_back(proof2);
 
     aggregator.generate_r1cs_witness(vks, inputs, proofs);
 
+    // Aggregated proof
     r1cs_ppzksnark_keypair<ppT_B> agg_keypair = djo_setup<ppT_B>(aggregator.pb);
-    r1cs_ppzksnark_proof<ppT_B> agg_proof = djo_generate_proof<ppT_B>(aggregator.pb, agg_keypair);
-    ok = djo_verify<ppT_B>(aggregator.pb, agg_keypair, agg_proof);
+    r1cs_ppzksnark_proof<ppT_B> agg_proof = djo_generate_proof<ppT_B>(aggregator.pb, agg_keypair.pk);
+    bool ok = djo_verify<ppT_B>(aggregator.pb, agg_keypair.vk, agg_proof);
+
+    // DEBUG
+    std::cout << "\n*** DEBUG ***\n";
+
+    if (ok1) {
+        std::cout << "Simple Proof1 OK\n";
+    } else {
+        std::cout << "Simple Proof1 KO\n";
+    }
+    djo_trace<ppT_A>(pb1, keypair1, proof1);
+
+    if (ok2) {
+        std::cout << "Simple Proof2 OK\n";
+    } else {
+        std::cout << "Simple Proof2 KO\n";
+    }
+    djo_trace<ppT_A>(pb2, keypair2, proof2);
+
     if (ok) {
         std::cout << "Aggregated Proof OK\n";
     } else {
@@ -143,5 +190,6 @@ int main(void)
     libff::mnt4_pp::init_public_params();
     libff::mnt6_pp::init_public_params();
 
+    // Simple proofs over MNT4 and aggregated proof over MNT6
     djo_batch<libff::mnt4_pp, libff::mnt6_pp>();
 }
