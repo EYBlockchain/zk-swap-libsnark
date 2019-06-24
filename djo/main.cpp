@@ -6,18 +6,22 @@
  *****************************************************************************/
 #include <iostream>
 
+#include <libff/algebra/fields/field_utils.hpp>
 #include <libff/algebra/curves/mnt/mnt4/mnt4_pp.hpp>
 #include <libff/algebra/curves/mnt/mnt6/mnt6_pp.hpp>
-#include <libff/algebra/fields/field_utils.hpp>
+
+#include <libsnark/relations/constraint_satisfaction_problems/r1cs/examples/r1cs_examples.hpp>
+
+#include <libsnark/zk_proof_systems/ppzksnark/r1cs_ppzksnark/r1cs_ppzksnark.hpp>
 
 #include <libsnark/gadgetlib1/gadgets/fields/fp2_gadgets.hpp>
 #include <libsnark/gadgetlib1/gadgets/fields/fp3_gadgets.hpp>
 #include <libsnark/gadgetlib1/gadgets/fields/fp4_gadgets.hpp>
 #include <libsnark/gadgetlib1/gadgets/fields/fp6_gadgets.hpp>
-#include <libsnark/relations/constraint_satisfaction_problems/r1cs/examples/r1cs_examples.hpp>
-#include <libsnark/zk_proof_systems/ppzksnark/r1cs_ppzksnark/r1cs_ppzksnark.hpp>
+#include <libsnark/gadgetlib1/gadgets/verifiers/r1cs_ppzksnark_verifier_gadget.hpp>
+#include <libsnark/gadgetlib1/gadgets/verifiers/r1cs_ppzksnark_verifier_gadget.tcc>
 
-#include "main.hpp"
+#define DEBUG
 
 using namespace libsnark;
 
@@ -68,11 +72,12 @@ void test_verifier(const std::string &annotation_A, const std::string &annotatio
 
     // DEBUG
     proof_A.g_B.g.print();
-
     std::cout << pb_A.num_constraints() << "\n";
     std::cout << pb_A.num_inputs() << "\n";
     std::cout << pb_A.num_variables() << "\n";
-    std::cout << pb_A.constraint_system.primary_input_size << "\n";
+    std::cout << pb_A.get_constraint_system().primary_input_size << "\n";
+    std::cout << pb_A.primary_input().size() << "\n";
+
 
     if (proof_ok_A) {
         std::cout << "Simple Proof : OK\n";
@@ -134,11 +139,11 @@ void test_verifier(const std::string &annotation_A, const std::string &annotatio
 
     // DEBUG
     proof_B.g_B.g.print();
-
     std::cout << pb_B.num_constraints() << "\n";
     std::cout << pb_B.num_inputs() << "\n";
     std::cout << pb_B.num_variables() << "\n";
-    std::cout << pb_B.constraint_system.primary_input_size << "\n";
+    std::cout << pb_B.get_constraint_system().primary_input_size << "\n";
+    std::cout << pb_B.primary_input().size() << "\n";
 
     if (proof_ok_B) {
         std::cout << "Recursive Proof : OK\n";
