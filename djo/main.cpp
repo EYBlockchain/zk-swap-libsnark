@@ -19,7 +19,6 @@
 #include <libsnark/gadgetlib1/gadgets/fields/fp4_gadgets.hpp>
 #include <libsnark/gadgetlib1/gadgets/fields/fp6_gadgets.hpp>
 #include <libsnark/gadgetlib1/gadgets/verifiers/r1cs_ppzksnark_verifier_gadget.hpp>
-#include <libsnark/gadgetlib1/gadgets/verifiers/r1cs_ppzksnark_verifier_gadget.tcc>
 
 #define DEBUG
 
