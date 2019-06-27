@@ -1,25 +1,62 @@
-#ifndef AGGREGATOR_CIRCUIT_TCC
-#define AGGREGATOR_CIRCUIT_TCC
+#ifndef DJO_AGGREGATOR
+#define DJO_AGGREGATOR
 
-#include "libsnark/gadgetlib1/gadget.hpp"
-#include "libsnark/gadgetlib1/gadgets/verifiers/r1cs_ppzksnark_verifier_gadget.hpp"
-#include "libsnark/gadgetlib1/gadgets/hashes/crh_gadget.hpp"
-#include "libsnark/gadgetlib1/gadgets/basic_gadgets.hpp"
-#include <libsnark/gadgetlib1/constraint_profiling.hpp>
-#include <libsnark/zk_proof_systems/ppzksnark/r1cs_ppzksnark/r1cs_ppzksnark.hpp>
 #include <iostream>
 
-using namespace std;
+#include "libsnark/gadgetlib1/gadgets/verifiers/r1cs_ppzksnark_verifier_gadget.hpp"
+#include "libsnark/gadgetlib1/gadgets/hashes/crh_gadget.hpp"
+
 using namespace libsnark;
 
 template<typename from, typename to>
-aggregator_circuit<from, to>::aggregator_circuit(size_t aggregation_arity):
+class aggregator {
+    public:
+
+        using to_field = libff::Fr<to>;
+        using from_field = libff::Fr<from>;
+
+        protoboard<to_field> pb;
+
+        size_t aggregation_arity;
+
+        pb_variable_array<to_field> aggregator_input_var;
+
+        std::vector<pb_variable_array<to_field>> verifier_inputs_bits;
+
+        std::vector<pb_variable_array<to_field>> verification_keys_bits;
+        std::vector<r1cs_ppzksnark_verification_key_variable<to>> verification_keys;
+
+        std::vector<r1cs_ppzksnark_proof_variable<to>> proofs;
+        std::vector<pb_variable_array<to_field>> proofs_contents;
+        std::vector<multipacking_gadget<to_field> > unpack_proofs;
+        std::vector<pb_variable_array<to_field>> proofs_bits;
+
+        std::vector<pb_variable_array<to_field>> block_inputs_vars;
+        std::shared_ptr<block_variable<to_field>> block_for_input_verification;
+        std::shared_ptr<CRH_with_field_out_gadget<to_field>> hash_incoming_proof;
+
+        pb_variable<to_field> verification_result;
+        std::vector<r1cs_ppzksnark_verifier_gadget<to>> verifiers;
+
+        aggregator(size_t aggregation_arity);
+        void generate_r1cs_constraints();
+        void generate_r1cs_witness(
+                std::vector<r1cs_ppzksnark_verification_key<from>> verification_key_value,
+                std::vector<r1cs_ppzksnark_primary_input<from>> verifier_input_values,
+                std::vector<r1cs_ppzksnark_proof<from>> proof_value);
+        void generate_primary_inputs(
+                std::vector<r1cs_ppzksnark_verification_key<from>> verification_key_value,
+                std::vector<r1cs_ppzksnark_primary_input<from>> verifier_input_values,
+                std::vector<r1cs_ppzksnark_proof<from>> proof_value);
+};
+
+template<typename from, typename to>
+aggregator<from, to>::aggregator(size_t aggregation_arity):
     aggregation_arity(aggregation_arity)
- {
+{
 
     /**
-     * @brief Manually sets the input, proof and verification key sizes
-     *  for a single input circuit
+     * @brief Manually sets the input, proof and verification key sizes for a single input circuit
      */
     const size_t field_logsize = to_field::size_in_bits();
     const size_t elt_size = from_field::size_in_bits();
@@ -29,14 +66,13 @@ aggregator_circuit<from, to>::aggregator_circuit(size_t aggregation_arity):
 
     const size_t vk_size_in_bits = r1cs_ppzksnark_verification_key_variable<to>::size_in_bits(digest_size);
     const size_t proof_size_in_bits = r1cs_ppzksnark_proof_variable<to>::size() * field_logsize;
-    
+
     const size_t block_size = aggregation_arity * (vk_size_in_bits + proof_size_in_bits + verifier_input_size_in_bits);
 
     aggregator_input_var.allocate(pb, digest_size, "Input of the aggregator circuit");
 
     /**
      * @brief Setup the wires for the verifier input bits decomposition
-     *
      */
     verifier_inputs_bits.resize(aggregation_arity);
     for(uint i=0; i<aggregation_arity; i++)
@@ -46,7 +82,6 @@ aggregator_circuit<from, to>::aggregator_circuit(size_t aggregation_arity):
 
     /**
      * @brief Setup the wires for the proof and its bit decomposition
-     *
      */
     proofs_bits.resize(aggregation_arity);
     proofs_contents.resize(aggregation_arity);
@@ -54,36 +89,34 @@ aggregator_circuit<from, to>::aggregator_circuit(size_t aggregation_arity):
     {
         proofs.emplace_back(r1cs_ppzksnark_proof_variable<to>(pb, "proof"));
         proofs_bits[i].allocate(pb, proof_size_in_bits, "Proof in bits");
-        proofs_contents[i].allocate(pb, 
-            r1cs_ppzksnark_proof_variable<to>::size(), 
-            "Intermediate variable storing the field representation of the proof"
-        );
+        proofs_contents[i].allocate(pb,
+                r1cs_ppzksnark_proof_variable<to>::size(),
+                "Intermediate variable storing the field representation of the proof"
+                );
         unpack_proofs.emplace_back(multipacking_gadget<to_field>(pb,
-            proofs_bits[i],
-            proofs_contents[i],
-            field_logsize,
-            "Unpack the proof"
-        ));
-    } 
+                    proofs_bits[i],
+                    proofs_contents[i],
+                    field_logsize,
+                    "Unpack the proof"
+                    ));
+    }
 
     /**
      * @brief Setup the wires for the verification key and its bits decomposition
-     *
      */
     verification_keys_bits.resize(aggregation_arity);
     for(uint i=0; i<aggregation_arity; i++)
     {
         verification_keys_bits[i].allocate(pb, vk_size_in_bits, "Verification key in bits");
         verification_keys.emplace_back(r1cs_ppzksnark_verification_key_variable<to>(pb,
-            verification_keys_bits[i],
-            digest_size,
-            "Verification key variable"
-        ));
+                    verification_keys_bits[i],
+                    digest_size,
+                    "Verification key variable"
+                    ));
     }
 
     /**
      * @brief Concatenate all hash inputs in a single vector
-     *
      */
     for(uint i=0; i<aggregation_arity; i++)
     {
@@ -94,35 +127,33 @@ aggregator_circuit<from, to>::aggregator_circuit(size_t aggregation_arity):
 
     /**
      * @brief Set up the hash function input
-     * 
      */
-    block_for_input_verification.reset(new block_variable<to_field>(pb, 
-        block_inputs_vars,
-        "Block variable for verification key | proof | verifier input")
-    );
+    block_for_input_verification.reset(new block_variable<to_field>(pb,
+                block_inputs_vars,
+                "Block variable for verification key | proof | verifier input")
+            );
     assert(block_for_input_verification->bits.size() == block_size);
     hash_incoming_proof.reset(new CRH_with_field_out_gadget<to_field>(pb,
-        block_size,
-        *block_for_input_verification,
-        aggregator_input_var,
-        "Hash verification key, proof, verifier input"
-    ));
+                block_size,
+                *block_for_input_verification,
+                aggregator_input_var,
+                "Hash verification key, proof, verifier input"
+                ));
 
     /**
      * @brief Setup the wires for the verifier
-     *
      */
     verification_result.allocate(pb, "Contains the result of the verification");
     for(uint i=0; i<aggregation_arity; i++)
     {
         verifiers.emplace_back(r1cs_ppzksnark_verifier_gadget<to>(pb,
-            verification_keys[i],
-            verifier_inputs_bits[i],
-            elt_size,
-            proofs[i],
-            verification_result,
-            "Verifier gadget"
-        ));
+                    verification_keys[i],
+                    verifier_inputs_bits[i],
+                    elt_size,
+                    proofs[i],
+                    verification_result,
+                    "Verifier gadget"
+                    ));
     }
 
     /* Only aggregator_input is set as an input variable as it is the first instanciated variable */
@@ -130,7 +161,7 @@ aggregator_circuit<from, to>::aggregator_circuit(size_t aggregation_arity):
 }
 
 template<typename from, typename to>
-void aggregator_circuit<from, to>::generate_r1cs_constraints(){
+void aggregator<from, to>::generate_r1cs_constraints(){
 
     PROFILE_CONSTRAINTS(pb, "booleanity")
     {
@@ -157,14 +188,14 @@ void aggregator_circuit<from, to>::generate_r1cs_constraints(){
     }
 
     PROFILE_CONSTRAINTS(pb, "Check that proof lies on the curve")
-    {        
+    {
         for(uint i=0; i<aggregation_arity; i++)
         {
             proofs[i].generate_r1cs_constraints();
         }
     }
 
-    // TODO: Cache this in an upperlayer proof variable. 
+    // TODO: Cache this in an upperlayer proof variable.
     // Since this is a lot of code for a tiny part of the aggregator
     PROFILE_CONSTRAINTS(pb, "Map proof content"){
         size_t counter;
@@ -175,11 +206,11 @@ void aggregator_circuit<from, to>::generate_r1cs_constraints(){
                 for(size_t j=0; j<proofs[0].all_G1_vars[0]->all_vars.size(); j++)
                 {
                     pb.add_r1cs_constraint(r1cs_constraint<to_field>(
-                        1, 
-                        proofs[k].all_G1_vars[i]->all_vars[j], 
-                        proofs_contents[k][counter]
-                    ));
-                    counter++;  
+                                1,
+                                proofs[k].all_G1_vars[i]->all_vars[j],
+                                proofs_contents[k][counter]
+                                ));
+                    counter++;
                 }
             }
             for(size_t i=0; i<proofs[0].all_G2_vars.size(); i++)
@@ -187,11 +218,11 @@ void aggregator_circuit<from, to>::generate_r1cs_constraints(){
                 for(size_t j=0; j<proofs[0].all_G2_vars[0]->all_vars.size(); j++)
                 {
                     pb.add_r1cs_constraint(r1cs_constraint<to_field>(
-                        1, 
-                        proofs[k].all_G2_vars[i]->all_vars[j], 
-                        proofs_contents[k][counter]
-                    ));
-                    counter++;  
+                                1,
+                                proofs[k].all_G2_vars[i]->all_vars[j],
+                                proofs_contents[k][counter]
+                                ));
+                    counter++;
                 }
             }
         }
@@ -204,7 +235,7 @@ void aggregator_circuit<from, to>::generate_r1cs_constraints(){
         {
             verifiers[i].generate_r1cs_constraints();
         }
-        
+
     }
 
     PROFILE_CONSTRAINTS(pb, "Miscellaneous")
@@ -217,21 +248,20 @@ void aggregator_circuit<from, to>::generate_r1cs_constraints(){
 }
 
 template<typename from, typename to>
-void aggregator_circuit<from, to>::generate_r1cs_witness(
-    std::vector<r1cs_ppzksnark_verification_key<from>> verification_key_value,
-    std::vector<r1cs_ppzksnark_primary_input<from>> verifier_input_values,
-    std::vector<r1cs_ppzksnark_proof<from>> proof_value
-){
+void aggregator<from, to>::generate_r1cs_witness(
+        std::vector<r1cs_ppzksnark_verification_key<from>> verification_key_value,
+        std::vector<r1cs_ppzksnark_primary_input<from>> verifier_input_values,
+        std::vector<r1cs_ppzksnark_proof<from>> proof_value
+        ){
 
     generate_primary_inputs(
-        verification_key_value,
-        verifier_input_values,
-        proof_value
-    );
+            verification_key_value,
+            verifier_input_values,
+            proof_value
+            );
 
     /**
      * @brief Generate witnesses for the CRH
-     * 
      */
     hash_incoming_proof->generate_r1cs_witness();
     for(size_t k=0; k<aggregation_arity; k++)
@@ -239,23 +269,21 @@ void aggregator_circuit<from, to>::generate_r1cs_witness(
         verifiers[k].generate_r1cs_witness();
     }
 
-
     assert(pb.is_satisfied());
 }
 
 
 template<typename from, typename to>
-void aggregator_circuit<from, to>::generate_primary_inputs(
-    std::vector<r1cs_ppzksnark_verification_key<from>> verification_key_value,
-    std::vector<r1cs_ppzksnark_primary_input<from>> verifier_input_values,
-    std::vector<r1cs_ppzksnark_proof<from>> proof_value
-){
+void aggregator<from, to>::generate_primary_inputs(
+        std::vector<r1cs_ppzksnark_verification_key<from>> verification_key_value,
+        std::vector<r1cs_ppzksnark_primary_input<from>> verifier_input_values,
+        std::vector<r1cs_ppzksnark_proof<from>> proof_value
+        ){
 
     size_t elt_size = from_field::size_in_bits();
 
     /**
      * @brief Assign the verifier input bits
-     * 
      */
     libff::bit_vector input_as_bits_values;
     libff::bit_vector v;
@@ -275,7 +303,6 @@ void aggregator_circuit<from, to>::generate_primary_inputs(
 
     /**
      * @brief Assign the proof and verification keys
-     * 
      */
     for(size_t k=0; k<aggregation_arity; k++)
     {
@@ -285,7 +312,6 @@ void aggregator_circuit<from, to>::generate_primary_inputs(
 
     /**
      * @brief Maps proof content with proof, and proof_bits with proof content
-     * 
      */
     uint counter;
     for(size_t k=0; k<aggregation_arity; k++)
@@ -294,13 +320,13 @@ void aggregator_circuit<from, to>::generate_primary_inputs(
         for(size_t i=0; i<proofs[0].all_G1_vars.size(); i++){
             for(size_t j=0; j<proofs[0].all_G1_vars[0]->all_vars.size(); j++){
                 pb.val(proofs_contents[k][counter]) = pb.lc_val(proofs[k].all_G1_vars[i]->all_vars[j]);
-                counter++;  
+                counter++;
             }
         }
         for(size_t i=0; i<proofs[0].all_G2_vars.size(); i++){
             for(size_t j=0; j<proofs[0].all_G2_vars[0]->all_vars.size(); j++){
                 pb.val(proofs_contents[k][counter]) = pb.lc_val(proofs[k].all_G2_vars[i]->all_vars[j]);
-                counter++;  
+                counter++;
             }
         }
         unpack_proofs[k].generate_r1cs_witness_from_packed();
@@ -309,14 +335,12 @@ void aggregator_circuit<from, to>::generate_primary_inputs(
 
     /**
      * @brief Generate witnesses for the CRH
-     * 
      */
     hash_incoming_proof->generate_r1cs_witness();
     // for(size_t k=0; k<aggregation_arity; k++)
     // {
     //     verifiers[k].generate_r1cs_witness();
     // }
-
 
     assert(pb.is_satisfied());
 }

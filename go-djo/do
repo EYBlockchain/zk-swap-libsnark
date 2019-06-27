@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+
+clean() {
+    rm -rf ./djo/deps \
+        && go clean -cache ./djo
+}
+
+deps() {
+    mkdir -p djo/deps \
+        && cp -f ../build/depends/libff/libff/libff.a djo/deps \
+        && cp -f ../build/libsnark/libsnark.a djo/deps \
+        && cp -f ../djo/libdjo.a djo/deps
+}
+
+check() {
+    go fmt ./... \
+        && golint ./... \
+        && go vet ./...
+}
+
+build() {
+    for d in ./cmd/*
+    do
+        go build "$d"
+    done
+}
+
+err() {
+    echo "Possible commands:"
+    echo "  clean : clean deps"
+    echo "  deps  : copy deps"
+    echo "  check : fmt, lint and vet the whole golang src"
+    echo "  build : build commands"
+}
+
+main() {
+    local cmd; cmd=$1; shift
+    [ -z "$cmd" ] \
+        && err && return 1
+    [ "$cmd" != clean ] \
+        && [ "$cmd" != deps ] \
+        && [ "$cmd" != check ] \
+        && [ "$cmd" != build ] \
+        && err && return 1
+    $cmd "$@"
+}
+
+main "$@"
