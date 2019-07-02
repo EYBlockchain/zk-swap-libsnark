@@ -7,21 +7,25 @@
 // Basic serializers
 
 template<typename ppT>
-void _djo_serialize_vk(const r1cs_ppzksnark_verification_key<ppT> src, djo_pinocchio_vk *target) {
+void _djo_serialize_vk(const r1cs_ppzksnark_verification_key<ppT> *src, djo_pinocchio_vk *target) {
     const char *c = "123";
     target->alpha_a.x = (char *)malloc(4);
     strcpy(target->alpha_a.x, c);
 }
 
 template<typename ppT>
-void _djo_serialize_prim(const r1cs_ppzksnark_primary_input<ppT> src, djo_pinocchio_prim *target) {}
+void _djo_serialize_prim(const r1cs_ppzksnark_primary_input<ppT> *src, djo_pinocchio_prim *target) {}
 
 template<typename ppT>
-void _djo_serialize_proof(const r1cs_ppzksnark_proof<ppT> src, djo_pinocchio_proof *target) {}
+void _djo_serialize_proof(const r1cs_ppzksnark_proof<ppT> *src, djo_pinocchio_proof *target) {}
 
 // High level serializers
 template<typename ppT>
-void _djo_serialize_vset(const _djo_pinocchio_vset<ppT> *src, struct djo_pinocchio_vset *target) {}
+void _djo_serialize_vset(const _djo_pinocchio_vset<ppT> *src, struct djo_pinocchio_vset *target) {
+    _djo_serialize_vk<ppT>(&src->vk, &target->vk);
+    _djo_serialize_prim<ppT>(&src->prim, &target->prim);
+    _djo_serialize_proof<ppT>(&src->proof, &target->proof);
+}
 
 template<typename ppT>
 void _djo_serialize_pset(const _djo_pinocchio_pset<ppT> *src, struct djo_pinocchio_pset *target) {}

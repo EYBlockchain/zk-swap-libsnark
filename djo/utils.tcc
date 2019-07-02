@@ -83,8 +83,6 @@ r1cs_ppzksnark_keypair<ppT> _djo_pinocchio_generate(const r1cs_constraint_system
     template<typename ppT>
 r1cs_ppzksnark_proof<ppT> _djo_pinocchio_prove(const _djo_pinocchio_pset<ppT> &pset)
 {
-    std::cout << "### PSET ###\n";
-    std::cout << pset.pk << "\n";
     return r1cs_ppzksnark_prover<ppT>(pset.pk, pset.prim, pset.aux);
 }
 
