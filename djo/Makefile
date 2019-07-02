@@ -5,8 +5,8 @@ CXX_INCLUDES = -I.. -I../depends/libff -I../depends/libfqfft -I../depends/libff/
 libdjo.a: lib.o
 	ar qc libdjo.a lib.o
 
-lib.o: lib.h lib.cpp utils.tcc aggregator.tcc
-	c++ $(CXX_FLAGS) $(CXX_DEFINES) $(CXX_INCLUDES) -c  lib.cpp -o lib.o
+lib.o: lib.h lib.cpp serialize.tcc utils.tcc aggregator.tcc
+	c++ $(CXX_FLAGS) $(CXX_DEFINES) $(CXX_INCLUDES) -c lib.cpp -o lib.o
 
 clean:
 	rm -f *.o *.a

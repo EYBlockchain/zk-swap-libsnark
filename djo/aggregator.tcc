@@ -1,8 +1,6 @@
 #ifndef DJO_AGGREGATOR
 #define DJO_AGGREGATOR
 
-#include <iostream>
-
 #include "libsnark/gadgetlib1/gadgets/verifiers/r1cs_ppzksnark_verifier_gadget.hpp"
 #include "libsnark/gadgetlib1/gadgets/hashes/crh_gadget.hpp"
 

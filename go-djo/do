@@ -29,7 +29,7 @@ err() {
     echo "Possible commands:"
     echo "  clean : clean deps"
     echo "  deps  : copy deps"
-    echo "  check : fmt, lint and vet the whole golang src"
+    echo "  check : fmt, lint and vet all packages"
     echo "  build : build commands"
 }
 

@@ -10,12 +10,12 @@
 using namespace libsnark;
 
 template<typename ppT>
-class djo_pinocchio_pset {
+class _djo_pinocchio_pset {
     public:
         const r1cs_ppzksnark_proving_key<ppT> pk;
         const r1cs_primary_input<libff::Fr<ppT>> prim;
         const r1cs_auxiliary_input<libff::Fr<ppT>> aux;
-        djo_pinocchio_pset(
+        _djo_pinocchio_pset(
                 const r1cs_ppzksnark_proving_key<ppT> &pk,
                 const r1cs_primary_input<libff::Fr<ppT>> &prim,
                 const r1cs_auxiliary_input<libff::Fr<ppT>> &aux):
@@ -23,12 +23,12 @@ class djo_pinocchio_pset {
 };
 
 template<typename ppT>
-class djo_pinocchio_vset {
+class _djo_pinocchio_vset {
     public:
         const r1cs_ppzksnark_verification_key<ppT> vk;
         const r1cs_primary_input<libff::Fr<ppT>> prim;
         const r1cs_ppzksnark_proof<ppT> proof;
-        djo_pinocchio_vset(
+        _djo_pinocchio_vset(
                 const r1cs_ppzksnark_verification_key<ppT> &vk,
                 const r1cs_primary_input<libff::Fr<ppT>> &prim,
                 const r1cs_ppzksnark_proof<ppT> &proof):
@@ -36,7 +36,7 @@ class djo_pinocchio_vset {
 };
 
     template<typename ppT>
-protoboard<libff::Fr<ppT>> djo_pinocchio_1()
+protoboard<libff::Fr<ppT>> _djo_pinocchio_example()
 {
     // Protoboard to prove `x^3 + x + 5 == y` where `y` is public
     typedef libff::Fr<ppT> FieldT;
@@ -75,25 +75,27 @@ protoboard<libff::Fr<ppT>> djo_pinocchio_1()
 }
 
     template<typename ppT>
-r1cs_ppzksnark_keypair<ppT> djo_pinocchio_generate(const r1cs_constraint_system<libff::Fr<ppT>> &r1cs)
+r1cs_ppzksnark_keypair<ppT> _djo_pinocchio_generate(const r1cs_constraint_system<libff::Fr<ppT>> &r1cs)
 {
     return r1cs_ppzksnark_generator<ppT>(r1cs);
 }
 
     template<typename ppT>
-r1cs_ppzksnark_proof<ppT> djo_pinocchio_prove(const djo_pinocchio_pset<ppT> &pset)
+r1cs_ppzksnark_proof<ppT> _djo_pinocchio_prove(const _djo_pinocchio_pset<ppT> &pset)
 {
+    std::cout << "### PSET ###\n";
+    std::cout << pset.pk << "\n";
     return r1cs_ppzksnark_prover<ppT>(pset.pk, pset.prim, pset.aux);
 }
 
     template<typename ppT>
-bool djo_pinocchio_verify(const djo_pinocchio_vset<ppT> &vset)
+bool _djo_pinocchio_verify(const _djo_pinocchio_vset<ppT> &vset)
 {
     return r1cs_ppzksnark_verifier_strong_IC<ppT>(vset.vk, vset.prim, vset.proof);
 }
 
     template<typename ppT_F, typename ppT_T>
-djo_pinocchio_vset<ppT_T> djo_pinocchio_batch(std::vector<djo_pinocchio_vset<ppT_F>> vsets)
+_djo_pinocchio_vset<ppT_T> _djo_pinocchio_batch(std::vector<_djo_pinocchio_vset<ppT_F>> vsets)
 {
     aggregator<ppT_F, ppT_T> agg(vsets.size());
     agg.generate_r1cs_constraints();
@@ -106,10 +108,10 @@ djo_pinocchio_vset<ppT_T> djo_pinocchio_batch(std::vector<djo_pinocchio_vset<ppT
         prims.emplace_back(vset.prim);
         proofs.emplace_back(vset.proof);
     }
-    r1cs_ppzksnark_keypair<ppT_T> keypair = djo_pinocchio_generate<ppT_T>(agg.pb.get_constraint_system());
+    r1cs_ppzksnark_keypair<ppT_T> keypair = _djo_pinocchio_generate<ppT_T>(agg.pb.get_constraint_system());
     agg.generate_r1cs_witness(vks, prims, proofs);
-    r1cs_ppzksnark_proof<ppT_T> proof = djo_pinocchio_prove<ppT_T>(djo_pinocchio_pset<ppT_T>(keypair.pk, agg.pb.primary_input(), agg.pb.auxiliary_input()));
-    return djo_pinocchio_vset<ppT_T>(keypair.vk, agg.pb.primary_input(), proof);
+    r1cs_ppzksnark_proof<ppT_T> proof = _djo_pinocchio_prove<ppT_T>(_djo_pinocchio_pset<ppT_T>(keypair.pk, agg.pb.primary_input(), agg.pb.auxiliary_input()));
+    return _djo_pinocchio_vset<ppT_T>(keypair.vk, agg.pb.primary_input(), proof);
 }
 
 #endif
