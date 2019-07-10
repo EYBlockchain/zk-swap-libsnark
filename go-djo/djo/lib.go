@@ -1,5 +1,6 @@
 package djo
 
+
 // #cgo CFLAGS: -I../..
 // #cgo LDFLAGS: -L${SRCDIR}/deps -lstdc++ -ldjo -lsnark -lff -lgomp -lgmp -lprocps -lm -lcrypto -lgmpxx
 // #include <stdlib.h>
@@ -38,11 +39,8 @@ func TestPinocchioMNT6MNT4Batch(arity uint) bool {
 	return bool(C.djo_test_pinocchio_mnt6_mnt4_batch(C.uint(arity)))
 }
 
-// // PinocchioMNT4Prove is ...
-// func PinocchioMNT4Prove() string {
-// 	vset := &C.struct_djo_pinocchio_vset{}
-// 	C.djo_pinocchio_mnt4_prove(vset)
-// 	s := C.GoString(vset.vk.alpha_a.x)
-// 	pinocchioVSetFree(vset)
-// 	return s
-// }
+// TestPinocchioBatch3Proofs is ...
+func TestPinocchioBatch3Proofs() bool {
+	return bool(C.djo_test_pinocchio_batch_3())
+}
+

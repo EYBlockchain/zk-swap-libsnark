@@ -66,3 +66,33 @@ bool djo_test_pinocchio_mnt6_mnt4_batch(unsigned int arity) {
     _djo_pinocchio_vset<ppT_T> vset = _djo_pinocchio_batch<ppT_F, ppT_T>(vsets);
     return _djo_pinocchio_verify<ppT_T>(vset);
 }
+
+bool djo_test_pinocchio_batch_3() {
+    using ppT_F = libff::mnt6_pp;
+    using ppT_T = libff::mnt4_pp;
+
+    // Generate a simple proof on ppT_F
+    protoboard<libff::Fr<ppT_F>> pb_F = _djo_pinocchio_example<ppT_F>();
+    r1cs_ppzksnark_keypair<ppT_F> keypair_F = _djo_pinocchio_generate<ppT_F>(pb_F.get_constraint_system());
+    r1cs_ppzksnark_proof<ppT_F> proof_F = _djo_pinocchio_prove<ppT_F>(_djo_pinocchio_pset<ppT_F>(keypair_F.pk, pb_F.primary_input(), pb_F.auxiliary_input()));
+    
+    // Generate a simple proof on ppT_T
+    protoboard<libff::Fr<ppT_T>> pb_T = _djo_pinocchio_example<ppT_T>();
+    r1cs_ppzksnark_keypair<ppT_T> keypair_T = _djo_pinocchio_generate<ppT_T>(pb_T.get_constraint_system());
+    r1cs_ppzksnark_proof<ppT_T> proof_T = _djo_pinocchio_prove<ppT_T>(_djo_pinocchio_pset<ppT_T>(keypair_T.pk, pb_T.primary_input(), pb_T.auxiliary_input()));
+
+
+    // Batch 2 simple proofs
+    std::vector<_djo_pinocchio_vset<ppT_F>> vsets;
+    vsets.emplace_back(_djo_pinocchio_vset<ppT_F>(keypair_F.vk, pb_F.primary_input(), proof_F));
+    vsets.emplace_back(_djo_pinocchio_vset<ppT_F>(keypair_F.vk, pb_F.primary_input(), proof_F));
+    _djo_pinocchio_vset<ppT_T> vset = _djo_pinocchio_batch<ppT_F, ppT_T>(vsets);
+
+    // Batch simple proof with the 2-aggregated proof
+    std::vector<_djo_pinocchio_vset<ppT_T>> vsets_final;
+    vsets_final.emplace_back(_djo_pinocchio_vset<ppT_T>(keypair_T.vk, pb_T.primary_input(), proof_T));
+    vsets_final.emplace_back(_djo_pinocchio_vset<ppT_T>(vset.vk, vset.prim, vset.proof));
+    _djo_pinocchio_vset<ppT_F> vset_final = _djo_pinocchio_batch<ppT_T, ppT_F>(vsets_final);
+
+    return _djo_pinocchio_verify<ppT_F>(vset_final);
+}
