@@ -77,6 +77,7 @@ extern "C" {
     bool djo_test_pinocchio_mnt4();
     bool djo_test_pinocchio_mnt6();
     bool djo_test_pinocchio_mnt4_mnt6_batch(unsigned int arity);
+    bool djo_test_pinocchio_mnt6_mnt4_batch(unsigned int arity);
 
     void djo_pinocchio_mnt4_prove(struct djo_pinocchio_vset *vset);
 

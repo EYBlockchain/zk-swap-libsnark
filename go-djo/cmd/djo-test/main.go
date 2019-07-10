@@ -17,10 +17,14 @@ func main() {
 	} else {
 		fmt.Println("Simple Pinocchio (mnt6) : KO")
 	}
-	if djo.TestPinocchioMN4MNT6Batch(2) {
-		fmt.Println("Batch Pinocchio : OK")
+	if djo.TestPinocchioMNT4MNT6Batch(2) {
+		fmt.Println("Batch Pinocchio (MNT6->MNT4): OK")
 	} else {
-		fmt.Println("Batch Pinocchio : KO")
+		fmt.Println("Batch Pinocchio (MNT6->MNT4): KO")
 	}
-	fmt.Println(djo.PinocchioMNT4Prove())
+	if djo.TestPinocchioMNT6MNT4Batch(2) {
+		fmt.Println("Batch Pinocchio (MNT4->MNT6): OK")
+	} else {
+		fmt.Println("Batch Pinocchio (MNT4->MNT6): KO")
+	}
 }

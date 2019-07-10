@@ -28,16 +28,21 @@ func TestPinocchioMNT6() bool {
 	return bool(C.djo_test_pinocchio_mnt6())
 }
 
-// TestPinocchioMN4MNT6Batch is ...
-func TestPinocchioMN4MNT6Batch(arity uint) bool {
+// TestPinocchioMNT4MNT6Batch is ...
+func TestPinocchioMNT4MNT6Batch(arity uint) bool {
 	return bool(C.djo_test_pinocchio_mnt4_mnt6_batch(C.uint(arity)))
 }
 
-// PinocchioMNT4Prove is ...
-func PinocchioMNT4Prove() string {
-	vset := &C.struct_djo_pinocchio_vset{}
-	C.djo_pinocchio_mnt4_prove(vset)
-	s := C.GoString(vset.vk.alpha_a.x)
-	pinocchioVSetFree(vset)
-	return s
+// TestPinocchioMNT6MNT4Batch is ...
+func TestPinocchioMNT6MNT4Batch(arity uint) bool {
+	return bool(C.djo_test_pinocchio_mnt6_mnt4_batch(C.uint(arity)))
 }
+
+// // PinocchioMNT4Prove is ...
+// func PinocchioMNT4Prove() string {
+// 	vset := &C.struct_djo_pinocchio_vset{}
+// 	C.djo_pinocchio_mnt4_prove(vset)
+// 	s := C.GoString(vset.vk.alpha_a.x)
+// 	pinocchioVSetFree(vset)
+// 	return s
+// }
