@@ -4,6 +4,7 @@
 ## Build
 In `zk-swap-libsnark` directory
 
+* `git submodule update --init --recursive`
 * `mkdir build && cd build && cmake .. && make`
 * `cd djo && make`
 
