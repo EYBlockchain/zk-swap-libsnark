@@ -36,7 +36,7 @@ class _djo_pinocchio_vset {
 };
 
     template<typename ppT>
-protoboard<libff::Fr<ppT>> _djo_pinocchio_example()
+protoboard<libff::Fr<ppT>> _djo_pinocchio_example_1()
 {
     // Protoboard to prove `x^3 + x + 5 == y` where `y` is public
     typedef libff::Fr<ppT> FieldT;
@@ -70,6 +70,35 @@ protoboard<libff::Fr<ppT>> _djo_pinocchio_example()
     pb.val(t3) = 30;
 
     assert(pb.is_satisfied());
+
+    return pb;
+}
+
+    template<typename ppT>
+protoboard<libff::Fr<ppT>> _djo_pinocchio_example_2()
+{
+    // Protoboard to prove factorization of an 768-RSA modulus
+    // (normally it would require 2^32 operations to factor it) 
+    typedef libff::Fr<ppT> FieldT;
+    protoboard<FieldT> pb = protoboard<FieldT>();
+
+    // Define Wires
+    pb_variable<FieldT> a;
+    a.allocate(pb, "a");
+    pb_variable<FieldT> b;
+    b.allocate(pb, "b");
+    pb_variable<FieldT> c;
+    b.allocate(pb, "c");
+
+    pb.set_input_sizes(1); // first n inputs are public
+
+    // Define Constraints
+    pb.add_r1cs_constraint(r1cs_constraint<FieldT>(a, b, c));
+
+    // Evaluate Circuit
+    pb.val(c) = 1230186684530117755130494958384962720772853569595334792197322452151726400507263657518745202199786469389956474942774063845925192557326303453731548268507917026122142913461670429214311602221240479274737794080665351419597459856902143413; // public
+    pb.val(a) = 33478071698956898786044169848212690817704794983713768568912431388982883793878002287614711652531743087737814467999489;
+    pb.val(b) = 36746043666799590428244633799627952632279158164343087642676032283815739666511279233373417143396810270092798736308917;
 
     return pb;
 }
