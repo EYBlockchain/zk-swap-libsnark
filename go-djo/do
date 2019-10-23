@@ -7,8 +7,8 @@ clean() {
 
 deps() {
     mkdir -p djo/deps \
-        && cp -f ../build/depends/libff/libff/libff.a djo/deps \
-        && cp -f ../build/libsnark/libsnark.a djo/deps \
+        && cp -f ../build/depends/libff/libff/libffd.a djo/deps \
+        && cp -f ../build/libsnark/libsnarkd.a djo/deps \
         && cp -f ../djo/libdjo.a djo/deps
 }
 

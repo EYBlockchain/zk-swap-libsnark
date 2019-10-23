@@ -74,6 +74,15 @@ extern "C" {
     void djo_pinocchio_pset_free(struct djo_pinocchio_pset *pset);
     void djo_pinocchio_vset_free(struct djo_pinocchio_vset *vset);
 
+    bool djo_test_pinocchio_mnt6753();
+    bool djo_test_pinocchio_mnt4753();
+    bool djo_test_pinocchio_alt_bn128();
+    bool djo_test_pinocchio_bls12_377();
+    bool djo_test_pinocchio_sw6();
+    bool djo_test_pinocchio_sw6_bis();
+    bool djo_test_pinocchio_pendulum();
+    bool djo_test_pinocchio_edwards();
+    bool djo_test_pinocchio_toy_curve();
     bool djo_test_pinocchio_mnt4();
     bool djo_test_pinocchio_mnt6();
     bool djo_test_pinocchio_mnt4_mnt6_batch(unsigned int arity);

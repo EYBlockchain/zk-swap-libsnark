@@ -2,16 +2,67 @@
 #include "utils.tcc"
 #include "serialize.tcc"
 
+#include <libff/algebra/curves/mnt753/mnt6753/mnt6753_pp.hpp>
+#include <libff/algebra/curves/mnt753/mnt4753/mnt4753_pp.hpp>
+#include <libff/algebra/curves/alt_bn128/alt_bn128_pp.hpp>
+#include <libff/algebra/curves/bls12_377/bls12_377_pp.hpp>
+#include <libff/algebra/curves/sw6/sw6_pp.hpp>
+#include <libff/algebra/curves/sw6_bis/sw6_bis_pp.hpp>
+#include <libff/algebra/curves/pendulum/pendulum_pp.hpp>
+#include <libff/algebra/curves/edwards/edwards_pp.hpp>
+#include <libff/algebra/curves/toy_curve/toy_curve_pp.hpp>
+
 void djo_initialize() {
     libff::inhibit_profiling_info = true;
     libff::inhibit_profiling_counters = true;
+    libff::alt_bn128_pp::init_public_params();
+    libff::edwards_pp::init_public_params();
     libff::mnt4_pp::init_public_params();
     libff::mnt6_pp::init_public_params();
+    libff::pendulum_pp::init_public_params();
+    libff::mnt6753_pp::init_public_params();
+    libff::mnt4753_pp::init_public_params();
+    libff::bls12_377_pp::init_public_params();
+    libff::sw6_pp::init_public_params();
+    libff::sw6_bis_pp::init_public_params();
+    libff::toy_curve_pp::init_public_params();
 }
 
 void djo_pinocchio_pset_free(struct djo_pinocchio_pset *pset) {}
 
 void djo_pinocchio_vset_free(struct djo_pinocchio_vset *vset) {}
+
+bool djo_test_pinocchio_alt_bn128() {
+    using ppT = libff::alt_bn128_pp;
+    protoboard<libff::Fr<ppT>> pb = _djo_pinocchio_example_1<ppT>();
+    r1cs_ppzksnark_keypair<ppT> keypair = _djo_pinocchio_generate<ppT>(pb.get_constraint_system());
+    r1cs_ppzksnark_proof<ppT> proof = _djo_pinocchio_prove<ppT>(_djo_pinocchio_pset<ppT>(keypair.pk, pb.primary_input(), pb.auxiliary_input()));
+    return _djo_pinocchio_verify<ppT>(_djo_pinocchio_vset<ppT>(keypair.vk, pb.primary_input(), proof));
+}
+
+bool djo_test_pinocchio_edwards() {
+    using ppT = libff::edwards_pp;
+    protoboard<libff::Fr<ppT>> pb = _djo_pinocchio_example_1<ppT>();
+    r1cs_ppzksnark_keypair<ppT> keypair = _djo_pinocchio_generate<ppT>(pb.get_constraint_system());
+    r1cs_ppzksnark_proof<ppT> proof = _djo_pinocchio_prove<ppT>(_djo_pinocchio_pset<ppT>(keypair.pk, pb.primary_input(), pb.auxiliary_input()));
+    return _djo_pinocchio_verify<ppT>(_djo_pinocchio_vset<ppT>(keypair.vk, pb.primary_input(), proof));
+}
+
+bool djo_test_pinocchio_mnt4753() {
+    using ppT = libff::mnt4753_pp;
+    protoboard<libff::Fr<ppT>> pb = _djo_pinocchio_example_1<ppT>();
+    r1cs_ppzksnark_keypair<ppT> keypair = _djo_pinocchio_generate<ppT>(pb.get_constraint_system());
+    r1cs_ppzksnark_proof<ppT> proof = _djo_pinocchio_prove<ppT>(_djo_pinocchio_pset<ppT>(keypair.pk, pb.primary_input(), pb.auxiliary_input()));
+    return _djo_pinocchio_verify<ppT>(_djo_pinocchio_vset<ppT>(keypair.vk, pb.primary_input(), proof));
+}
+
+bool djo_test_pinocchio_mnt6753() {
+    using ppT = libff::mnt6753_pp;
+    protoboard<libff::Fr<ppT>> pb = _djo_pinocchio_example_1<ppT>();
+    r1cs_ppzksnark_keypair<ppT> keypair = _djo_pinocchio_generate<ppT>(pb.get_constraint_system());
+    r1cs_ppzksnark_proof<ppT> proof = _djo_pinocchio_prove<ppT>(_djo_pinocchio_pset<ppT>(keypair.pk, pb.primary_input(), pb.auxiliary_input()));
+    return _djo_pinocchio_verify<ppT>(_djo_pinocchio_vset<ppT>(keypair.vk, pb.primary_input(), proof));
+}
 
 bool djo_test_pinocchio_mnt4() {
     using ppT = libff::mnt4_pp;
@@ -23,6 +74,46 @@ bool djo_test_pinocchio_mnt4() {
 
 bool djo_test_pinocchio_mnt6() {
     using ppT = libff::mnt6_pp;
+    protoboard<libff::Fr<ppT>> pb = _djo_pinocchio_example_2<ppT>();
+    r1cs_ppzksnark_keypair<ppT> keypair = _djo_pinocchio_generate<ppT>(pb.get_constraint_system());
+    r1cs_ppzksnark_proof<ppT> proof = _djo_pinocchio_prove<ppT>(_djo_pinocchio_pset<ppT>(keypair.pk, pb.primary_input(), pb.auxiliary_input()));
+    return _djo_pinocchio_verify<ppT>(_djo_pinocchio_vset<ppT>(keypair.vk, pb.primary_input(), proof));
+}
+
+bool djo_test_pinocchio_pendulum() {
+    using ppT = libff::pendulum_pp;
+    protoboard<libff::Fr<ppT>> pb = _djo_pinocchio_example_2<ppT>();
+    r1cs_ppzksnark_keypair<ppT> keypair = _djo_pinocchio_generate<ppT>(pb.get_constraint_system());
+    r1cs_ppzksnark_proof<ppT> proof = _djo_pinocchio_prove<ppT>(_djo_pinocchio_pset<ppT>(keypair.pk, pb.primary_input(), pb.auxiliary_input()));
+    return _djo_pinocchio_verify<ppT>(_djo_pinocchio_vset<ppT>(keypair.vk, pb.primary_input(), proof));
+}
+
+bool djo_test_pinocchio_bls12_377() {
+    using ppT = libff::bls12_377_pp;
+    protoboard<libff::Fr<ppT>> pb = _djo_pinocchio_example_2<ppT>();
+    r1cs_ppzksnark_keypair<ppT> keypair = _djo_pinocchio_generate<ppT>(pb.get_constraint_system());
+    r1cs_ppzksnark_proof<ppT> proof = _djo_pinocchio_prove<ppT>(_djo_pinocchio_pset<ppT>(keypair.pk, pb.primary_input(), pb.auxiliary_input()));
+    return _djo_pinocchio_verify<ppT>(_djo_pinocchio_vset<ppT>(keypair.vk, pb.primary_input(), proof));
+}
+
+bool djo_test_pinocchio_sw6() {
+    using ppT = libff::sw6_pp;
+    protoboard<libff::Fr<ppT>> pb = _djo_pinocchio_example_2<ppT>();
+    r1cs_ppzksnark_keypair<ppT> keypair = _djo_pinocchio_generate<ppT>(pb.get_constraint_system());
+    r1cs_ppzksnark_proof<ppT> proof = _djo_pinocchio_prove<ppT>(_djo_pinocchio_pset<ppT>(keypair.pk, pb.primary_input(), pb.auxiliary_input()));
+    return _djo_pinocchio_verify<ppT>(_djo_pinocchio_vset<ppT>(keypair.vk, pb.primary_input(), proof));
+}
+
+bool djo_test_pinocchio_sw6_bis() {
+    using ppT = libff::sw6_bis_pp;
+    protoboard<libff::Fr<ppT>> pb = _djo_pinocchio_example_2<ppT>();
+    r1cs_ppzksnark_keypair<ppT> keypair = _djo_pinocchio_generate<ppT>(pb.get_constraint_system());
+    r1cs_ppzksnark_proof<ppT> proof = _djo_pinocchio_prove<ppT>(_djo_pinocchio_pset<ppT>(keypair.pk, pb.primary_input(), pb.auxiliary_input()));
+    return _djo_pinocchio_verify<ppT>(_djo_pinocchio_vset<ppT>(keypair.vk, pb.primary_input(), proof));
+}
+
+bool djo_test_pinocchio_toy_curve() {
+    using ppT = libff::toy_curve_pp;
     protoboard<libff::Fr<ppT>> pb = _djo_pinocchio_example_2<ppT>();
     r1cs_ppzksnark_keypair<ppT> keypair = _djo_pinocchio_generate<ppT>(pb.get_constraint_system());
     r1cs_ppzksnark_proof<ppT> proof = _djo_pinocchio_prove<ppT>(_djo_pinocchio_pset<ppT>(keypair.pk, pb.primary_input(), pb.auxiliary_input()));

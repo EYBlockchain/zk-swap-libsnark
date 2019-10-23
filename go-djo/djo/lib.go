@@ -19,6 +19,51 @@ func pinocchioVSetFree(vset *C.struct_djo_pinocchio_vset) {
 	C.djo_pinocchio_vset_free(vset)
 }
 
+// TestPinocchioMNT4753 is ...
+func TestPinocchioMNT4753() bool {
+	return bool(C.djo_test_pinocchio_mnt4753())
+}
+
+// TestPinocchioMNT6753 is ...
+func TestPinocchioMNT6753() bool {
+	return bool(C.djo_test_pinocchio_mnt6753())
+}
+
+// TestPinocchioALT_BN128 is ...
+func TestPinocchioALT_BN128() bool {
+	return bool(C.djo_test_pinocchio_alt_bn128())
+}
+
+// TestPinocchioBLS12_377 is ...
+func TestPinocchioBLS12_377() bool {
+	return bool(C.djo_test_pinocchio_bls12_377())
+}
+
+// TestPinocchioSW6 is ...
+func TestPinocchioSW6() bool {
+	return bool(C.djo_test_pinocchio_sw6())
+}
+
+// TestPinocchioSW6_BIS is ...
+func TestPinocchioSW6_BIS() bool {
+	return bool(C.djo_test_pinocchio_sw6_bis())
+}
+
+// TestPinocchioPENDULUM is ...
+func TestPinocchioPENDULUM() bool {
+	return bool(C.djo_test_pinocchio_pendulum())
+}
+
+// TestPinocchioEDWARDS is ...
+func TestPinocchioEDWARDS() bool {
+	return bool(C.djo_test_pinocchio_edwards())
+}
+
+// TestPinocchioTOY_CURVE is ...
+func TestPinocchioTOY_CURVE() bool {
+	return bool(C.djo_test_pinocchio_toy_curve())
+}
+
 // TestPinocchioMNT4 is ...
 func TestPinocchioMNT4() bool {
 	return bool(C.djo_test_pinocchio_mnt4())
