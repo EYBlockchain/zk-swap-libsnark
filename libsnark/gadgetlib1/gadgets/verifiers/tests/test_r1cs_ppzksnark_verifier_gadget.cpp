@@ -328,6 +328,72 @@ void test_full_pairing(const std::string &annotation)
     printf("number of constraints for full pairing (Fr is %s)  = %zu\n", annotation.c_str(), pb.num_constraints());
 }
 
+
+template<typename ppT>
+void test_pairing_product_gadget(const std::string &annotation)
+{
+    typedef libff::Fr<ppT> FieldT;
+
+    protoboard<FieldT> pb;
+    const auto P_val = libff::Fr<other_curve<ppT> >::random_element() * libff::G1<other_curve<ppT> >::one();
+    const auto nP_val = libff::Fr<other_curve<ppT> >::random_element() * libff::G1<other_curve<ppT> >::one();
+    const auto Q_val = libff::Fr<other_curve<ppT> >::random_element() * libff::G2<other_curve<ppT> >::one();
+    //const auto nP_val = -P_val;
+
+    G1_variable<ppT> P(pb, "P");
+    G1_variable<ppT> nP(pb, "nP");
+    G2_variable<ppT> Q(pb, "Q");
+    G1_precomputation<ppT> prec_P;
+    G1_precomputation<ppT> prec_nP;
+    G2_precomputation<ppT> prec_Q;
+
+    precompute_G1_gadget<ppT> compute_prec_P(pb, P, prec_P, "compute_prec_P");
+    precompute_G1_gadget<ppT> compute_prec_nP(pb, nP, prec_nP, "compute_prec_nP");
+    precompute_G2_gadget<ppT> compute_prec_Q(pb, Q, prec_Q, "compute_prec_Q");
+
+    std::vector<pairing_input_pair<ppT>> pairs;
+    pairs.emplace_back(prec_P, prec_Q);
+    pairs.emplace_back(prec_nP, prec_Q);
+    pairing_product_gadget<ppT> ppg(pb, pairs, "ppg");
+
+    PROFILE_CONSTRAINTS(pb, "Precompute points") {
+        compute_prec_P.generate_r1cs_constraints();
+        compute_prec_nP.generate_r1cs_constraints();
+        compute_prec_Q.generate_r1cs_constraints();
+    }
+
+    PROFILE_CONSTRAINTS(pb, "Pairing Product Gadget")
+    {
+        ppg.generate_r1cs_constraints();
+    }
+    PRINT_CONSTRAINT_PROFILING();
+
+    P.generate_r1cs_witness(P_val);
+    compute_prec_P.generate_r1cs_witness();
+
+    nP.generate_r1cs_witness(nP_val);
+    compute_prec_nP.generate_r1cs_witness();
+
+    Q.generate_r1cs_witness(Q_val);
+    compute_prec_Q.generate_r1cs_witness();
+
+    ppg.generate_r1cs_witness();
+
+    libff::affine_ate_G1_precomp<other_curve<ppT> > native_prec_P = other_curve<ppT>::affine_ate_precompute_G1(P_val);
+    libff::affine_ate_G1_precomp<other_curve<ppT> > native_prec_nP = other_curve<ppT>::affine_ate_precompute_G1(nP_val);
+    libff::affine_ate_G2_precomp<other_curve<ppT> > native_prec_Q = other_curve<ppT>::affine_ate_precompute_G2(Q_val);
+    libff::Fqk<other_curve<ppT> > native_miller_result_1 = other_curve<ppT>::affine_ate_miller_loop(native_prec_P, native_prec_Q);
+    libff::Fqk<other_curve<ppT> > native_miller_result_2 = other_curve<ppT>::affine_ate_miller_loop(native_prec_nP, native_prec_Q);
+    libff::Fqk<other_curve<ppT> > native_miller_product = native_miller_result_1 * native_miller_result_2;
+    libff::Fqk<other_curve<ppT> > native_finexp_result = other_curve<ppT>::final_exponentiation(native_miller_product);
+
+    assert(pb.is_satisfied());
+    assert(ppg.result().get_element() == native_finexp_result);
+
+    printf("number of constraints for full pairing (Fr is %s)  = %zu\n", annotation.c_str(), pb.num_constraints());
+}
+
+
 template<typename ppT>
 void test_full_precomputed_pairing(const std::string &annotation)
 {
@@ -427,4 +493,7 @@ int main(void)
 
     test_hardcoded_verifier<libff::mnt4_pp, libff::mnt6_pp>("mnt4", "mnt6");
     test_hardcoded_verifier<libff::mnt6_pp, libff::mnt4_pp>("mnt6", "mnt4");
+
+    test_pairing_product_gadget<libff::mnt4_pp>("mnt4");
+    test_pairing_product_gadget<libff::mnt6_pp>("mnt6");
 }

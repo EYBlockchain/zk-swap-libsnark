@@ -81,6 +81,12 @@ option(
   ON
 )
 
+option(
+  USE_ASAN
+  "Enable Address Sanitizer"
+  OFF
+)
+
 set(
   OPT_FLAGS
   ""
@@ -218,6 +224,13 @@ endif()
 
 if("${USE_ASM}")
   add_definitions(-DUSE_ASM)
+endif()
+
+if("${USE_ASAN}")
+  set(
+    CMAKE_CXX_FLAGS
+    "${CMAKE_CXX_FLAGS} -fsanitize=address"
+  )
 endif()
 
 if("${USE_LINKED_LIBRARIES}")

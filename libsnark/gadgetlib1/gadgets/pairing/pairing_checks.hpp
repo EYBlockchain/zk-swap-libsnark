@@ -88,6 +88,56 @@ public:
     void generate_r1cs_witness();
 };
 
+
+/** Pair of precomputed inputs for pairing */
+template<typename ppT>
+class pairing_input_pair
+{
+public:
+    const G1_precomputation<ppT> &g1;
+    const G2_precomputation<ppT> &g2;
+
+    pairing_input_pair( const G1_precomputation<ppT> &_g1, const G2_precomputation<ppT> &_g2 )
+    : g1(_g1), g2(_g2)
+    {}
+};
+
+
+/**
+* Compute the product of multiple pairings
+*
+*   e(P1,Q1) * e(P2,Q2) * ... * e(Pn,Qn)
+*
+* Equivalent to Ethereum ECPAIRING opcode.
+*
+* Caller must precompute the inputs.
+*/
+template<typename ppT>
+class pairing_product_gadget : public gadget<libff::Fr<ppT> > {
+public:
+    typedef libff::Fr<ppT> FieldT;
+
+    std::vector<Fqk_variable<ppT> > m_miller_results;
+    std::vector<miller_loop_gadget<ppT> > m_miller_loops;
+    std::vector<Fqk_variable<ppT> > m_product_results;
+    std::vector<Fqk_mul_gadget<ppT> > m_product;
+    std::shared_ptr<final_exp_gadget<ppT> > m_final_exp;
+    pb_variable<FieldT> result_is_one;
+
+    pairing_product_gadget(protoboard<FieldT> &pb,
+                           const std::vector<pairing_input_pair<ppT>> &pairs,
+                           const std::string &annotation_prefix);
+
+    void generate_r1cs_constraints();
+    void generate_r1cs_witness();
+
+    Fqk_variable<ppT>& result();
+
+    /** before final exponentiation */
+    Fqk_variable<ppT>& raw_result();
+};
+
+
 } // libsnark
 
 #include <libsnark/gadgetlib1/gadgets/pairing/pairing_checks.tcc>
