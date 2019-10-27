@@ -119,6 +119,7 @@ public:
 
     std::vector<Fqk_variable<ppT> > m_miller_results;
     std::vector<miller_loop_gadget<ppT> > m_miller_loops;
+    std::vector<Fqk_variable<ppT>> m_precomputed_loops;
     std::vector<Fqk_variable<ppT> > m_product_results;
     std::vector<Fqk_mul_gadget<ppT> > m_product;
     std::shared_ptr<final_exp_gadget<ppT> > m_final_exp;
@@ -126,6 +127,11 @@ public:
 
     pairing_product_gadget(protoboard<FieldT> &pb,
                            const std::vector<pairing_input_pair<ppT>> &pairs,
+                           const std::string &annotation_prefix);
+
+    pairing_product_gadget(protoboard<FieldT> &pb,
+                           const std::vector<pairing_input_pair<ppT>> &pairs,
+                           const std::vector<Fqk_variable<ppT>> &precomputed_loops,
                            const std::string &annotation_prefix);
 
     void generate_r1cs_constraints();

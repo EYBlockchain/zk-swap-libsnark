@@ -352,8 +352,8 @@ r1cs_gg_ppzksnark_keypair<ppT> r1cs_gg_ppzksnark_generator(const r1cs_gg_ppzksna
     libff::leave_block("Generate R1CS proving key");
 
     libff::enter_block("Generate R1CS verification key");
-    libff::GT<ppT> alpha_g1_beta_g2 = ppT::reduced_pairing(alpha_g1, beta_g2);
-    libff::G2<ppT> gamma_g2 = gamma * G2_gen;
+    //libff::GT<ppT> alpha_g1_beta_g2 = ppT::reduced_pairing(alpha_g1, beta_g2);
+    const libff::G2<ppT> gamma_g2 = gamma * G2_gen;
 
     libff::enter_block("Encode gamma_ABC for R1CS verification key");
     libff::G1<ppT> gamma_ABC_g1_0 = gamma_ABC_0 * g1_generator;
@@ -363,23 +363,25 @@ r1cs_gg_ppzksnark_keypair<ppT> r1cs_gg_ppzksnark_generator(const r1cs_gg_ppzksna
 
     libff::leave_block("Call to r1cs_gg_ppzksnark_generator");
 
-    accumulation_vector<libff::G1<ppT> > gamma_ABC_g1(std::move(gamma_ABC_g1_0), std::move(gamma_ABC_g1_values));
+    const accumulation_vector<libff::G1<ppT> > gamma_ABC_g1(std::move(gamma_ABC_g1_0), std::move(gamma_ABC_g1_values));
 
-    r1cs_gg_ppzksnark_verification_key<ppT> vk = r1cs_gg_ppzksnark_verification_key<ppT>(alpha_g1_beta_g2,
-                                                                                         gamma_g2,
-                                                                                         delta_g2,
-                                                                                         gamma_ABC_g1);
+    auto vk = r1cs_gg_ppzksnark_verification_key<ppT>(
+        alpha_g1,
+        beta_g2,
+        gamma_g2,
+        delta_g2,
+        gamma_ABC_g1);
 
-    r1cs_gg_ppzksnark_proving_key<ppT> pk = r1cs_gg_ppzksnark_proving_key<ppT>(std::move(alpha_g1),
-                                                                               std::move(beta_g1),
-                                                                               std::move(beta_g2),
-                                                                               std::move(delta_g1),
-                                                                               std::move(delta_g2),
-                                                                               std::move(A_query),
-                                                                               std::move(B_query),
-                                                                               std::move(H_query),
-                                                                               std::move(L_query),
-                                                                               std::move(r1cs_copy));
+    auto pk = r1cs_gg_ppzksnark_proving_key<ppT>(std::move(alpha_g1),
+                                                 std::move(beta_g1),
+                                                 std::move(beta_g2),
+                                                 std::move(delta_g1),
+                                                 std::move(delta_g2),
+                                                 std::move(A_query),
+                                                 std::move(B_query),
+                                                 std::move(H_query),
+                                                 std::move(L_query),
+                                                 std::move(r1cs_copy));
 
     pk.print_size();
     vk.print_size();
