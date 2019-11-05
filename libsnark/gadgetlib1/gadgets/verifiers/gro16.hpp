@@ -52,9 +52,9 @@ public:
         const std::string &annotation_prefix
     ) :
         gadget<FieldT>(pb, annotation_prefix),
-        A(pb, FMT(this->annotation_prefix, ".A")),
-        B(pb, FMT(this->annotation_prefix, ".B")),
-        C(pb, FMT(this->annotation_prefix, ".C")),
+        A(pb, FMT(annotation_prefix, ".A")),
+        B(pb, FMT(annotation_prefix, ".B")),
+        C(pb, FMT(annotation_prefix, ".C")),
         m_A_checker(pb, A, FMT(annotation_prefix, ".A_checker")),
         m_B_checker(pb, B, FMT(annotation_prefix, ".B_checker")),
         m_C_checker(pb, C, FMT(annotation_prefix, ".C_checker"))
@@ -69,22 +69,30 @@ public:
         m_C_checker.generate_r1cs_constraints();
     }
 
-    /** Variables are already filled with values */
-    void generate_r1cs_witness()
-    {
-        m_A_checker.generate_r1cs_witness();
-        m_B_checker.generate_r1cs_witness();
-        m_C_checker.generate_r1cs_witness();
-    }
-
     /** Fill variables from proof with inputs */
     void generate_r1cs_witness(
         const r1cs_gg_ppzksnark_proof<other_curve<ppT>> &proof
     ) {
+        // A and C need to be negated, so the first term in each pairing is negative
+        // e(A*B) * e(-IC*gamma) * e(-C*delta) * (-alpha*gamma) == 1
         A.generate_r1cs_witness(proof.g_A);
+        m_A_checker.generate_r1cs_witness();
+
         B.generate_r1cs_witness(proof.g_B);
-        C.generate_r1cs_witness(proof.g_C);
-        generate_r1cs_witness();
+        m_B_checker.generate_r1cs_witness();
+
+        C.generate_r1cs_witness(-proof.g_C);
+        m_C_checker.generate_r1cs_witness();
+    }
+
+    void print(const char *prefix="")
+    {
+        std::cout << prefix << ".A.X = "; this->pb.lc_val(A.X).print();
+        std::cout << prefix << ".A.Y = "; this->pb.lc_val(A.Y).print();
+        std::cout << prefix << ".B.X = "; this->B.X->get_element().print();
+        std::cout << prefix << ".B.Y = "; this->B.Y->get_element().print();
+        std::cout << prefix << ".C.X = "; this->pb.lc_val(C.X).print();
+        std::cout << prefix << ".C.Y = "; this->pb.lc_val(C.Y).print();
     }
 };
 
@@ -106,7 +114,9 @@ public:
     G2VarT m_gamma;
     G2VarT m_delta;
 
-    size_t n_inputs;
+    G1VarT m_IC_base;
+
+    const size_t n_inputs;
     std::vector<G1VarT> m_IC;
 
     std::vector<G1_checker_gadget<ppT>> m_g1_checkers;
@@ -114,23 +124,23 @@ public:
 
     void _init_checkers()
     {
-        auto pb = this->pb;
         const auto annotation_prefix = this->annotation_prefix;
 
-        m_g1_checkers.reserve(n_inputs + 1);
-        m_g1_checkers.emplace_back(pb, m_alpha, FMT(annotation_prefix, ".alpha_checker"));
-
-        m_g2_checkers.reserve(3);
-        m_g2_checkers.emplace_back(pb, m_beta, FMT(annotation_prefix, ".beta_checker"));
-        m_g2_checkers.emplace_back(pb, m_gamma, FMT(annotation_prefix, ".gamma_checker"));
-        m_g2_checkers.emplace_back(pb, m_delta, FMT(annotation_prefix, ".delta_checker"));
+        m_g1_checkers.reserve(n_inputs + 2);
+        m_g1_checkers.emplace_back(this->pb, m_alpha, FMT(annotation_prefix, ".alpha_checker"));
+        m_g1_checkers.emplace_back(this->pb, m_IC_base, FMT(annotation_prefix, ".IC_base"));
 
         assert( n_inputs > 0 );
-        for( size_t i = 0; i < (n_inputs + 1); i++ )
+        for( size_t i = 0; i < n_inputs; i++ )
         {
-            m_IC.emplace_back(pb, FMT(annotation_prefix, ".input_%d", i));
-            m_g1_checkers.emplace_back(pb, m_IC.back(), FMT(annotation_prefix, ".IC_checker_%d", i));
+            m_IC.emplace_back(this->pb, FMT(annotation_prefix, ".input_%d", i));
+            m_g1_checkers.emplace_back(this->pb, m_IC.back(), FMT(annotation_prefix, ".IC_checker_%d", i));
         }
+
+        m_g2_checkers.reserve(3);
+        m_g2_checkers.emplace_back(this->pb, m_beta, FMT(annotation_prefix, ".beta_checker"));
+        m_g2_checkers.emplace_back(this->pb, m_gamma, FMT(annotation_prefix, ".gamma_checker"));
+        m_g2_checkers.emplace_back(this->pb, m_delta, FMT(annotation_prefix, ".delta_checker"));
     }
 
     /**
@@ -147,6 +157,7 @@ public:
         m_beta(pb, FMT(annotation_prefix, ".beta")),
         m_gamma(pb, FMT(annotation_prefix, ".gamma")),
         m_delta(pb, FMT(annotation_prefix, ".delta")),
+        m_IC_base(pb, FMT(annotation_prefix, ".IC_base")),
         n_inputs(_n_inputs)
     {
         _init_checkers();
@@ -162,6 +173,7 @@ public:
         const G2VarT &beta,
         const G2VarT &gamma,
         const G2VarT &delta,
+        const G1VarT &IC_base,
         const std::vector<G1VarT> &IC,
         const std::string &annotation_prefix
     ) :
@@ -170,7 +182,9 @@ public:
         m_beta(beta),
         m_gamma(gamma),
         m_delta(delta),
-        n_inputs(IC.size())
+        m_IC_base(IC_base),
+        n_inputs(IC.size()),
+        m_IC(IC)
     {
         _init_checkers();
     }
@@ -184,52 +198,38 @@ public:
             gadget.generate_r1cs_constraints();
     }
 
-    /** When the VK variable values have already been filled */
     void generate_r1cs_witness()
     {
         for( auto &gadget : m_g1_checkers )
-            gadget.generate_r1cs_constraints();
+            gadget.generate_r1cs_witness();
 
         for( auto &gadget : m_g2_checkers )
-            gadget.generate_r1cs_constraints();
-    }
-
-    /** Fill variable values before witness of point checkers */
-    void generate_r1cs_witness(
-        const libff::G1<ppT> &alpha,
-        const libff::G2<ppT> &beta,
-        const libff::G2<ppT> &gamma,
-        const libff::G2<ppT> &delta,
-        const std::vector<libff::G1<ppT>> &IC
-    ) {
-        m_alpha.generate_r1cs_witness(alpha);
-        m_beta.generate_r1cs_witness(beta);
-        m_gamma.generate_r1cs_witness(gamma);
-        m_delta.generate_r1cs_witness(delta);
-
-        assert( m_IC.size() == IC.size() );
-        int i = 0;
-        for( const auto& x: IC )
-            m_IC[i++].generate_r1cs_witness(x);
-
-        generate_r1cs_witness();
+            gadget.generate_r1cs_witness();
     }
 
     template<typename T>
     void generate_r1cs_witness(
-        const libsnark::r1cs_gg_ppzksnark_verification_key<T> &vk
+        const r1cs_gg_ppzksnark_verification_key<T> &vk
     ) {
-        m_alpha.generate_r1cs_witness(vk.alpha_g1);
+        m_alpha.generate_r1cs_witness(-vk.alpha_g1);
         m_beta.generate_r1cs_witness(vk.beta_g2);
         m_gamma.generate_r1cs_witness(vk.gamma_g2);
         m_delta.generate_r1cs_witness(vk.delta_g2);
 
-        m_IC[0].generate_r1cs_witness(vk.gamma_ABC_g1.first);
-        int i = 1;
-        for( const auto& x: vk.gamma_ABC_g1.rest.indices )
-            m_IC[i++].generate_r1cs_witness(vk.gamma_ABC_g1.rest.values[x]);
+        // IC needs to be negated for the sum
+        m_IC_base.generate_r1cs_witness(-(vk.gamma_ABC_g1.first));
+        assert( vk.gamma_ABC_g1.rest.size() == n_inputs );
+        int i = 0;
+        for( const auto& x: vk.gamma_ABC_g1.rest.values ) {
+            m_IC[i++].generate_r1cs_witness(-x);
+        }
 
         generate_r1cs_witness();
+    }
+
+    void print(const char *prefix="")
+    {
+        std::cout << prefix << ".alpha = "; this->pb.lc_val(m_alpha.X).print();
     }
 };
 
@@ -265,7 +265,8 @@ public:
     Fqk_variable<ppT> m_alphabeta;
     miller_loop_gadget<ppT> m_alphabeta_loop;
 
-    std::vector<G1VarT> m_IC_raw;
+    G1VarT m_IC_base;
+    std::vector<G1VarT> m_IC;
 
     gro16_vk_preprocessor(
         protoboard<FieldT> &pb,
@@ -281,7 +282,28 @@ public:
         m_alphabeta(pb, FMT(annotation_prefix, ".alphabeta")),
         m_alphabeta_loop(pb, m_alpha, m_beta, m_alphabeta, FMT(annotation_prefix, ".alphabeta_miller_loop")),
         // Input commitment
-        m_IC_raw(vk.m_IC)
+        m_IC_base(vk.m_IC_base),
+        m_IC(vk.m_IC)
+    {
+    }
+
+    /* Verification key will be constant, no checker gadgets are necessary, only precomputation */
+    gro16_vk_preprocessor(
+        protoboard<FieldT> &pb,
+        const r1cs_gg_ppzksnark_verification_key<ppT> &vk,
+        const std::string &annotation_prefix
+    ) :
+        // Precomputation gadget allocates the result variables
+        m_alpha_precomp(pb, vk.alpha_g1, m_alpha, FMT(annotation_prefix, ".alpha_precomp")),
+        m_beta_precomp(pb, vk.beta_g2, m_beta, FMT(annotation_prefix, ".beta_precomp")),
+        m_gamma_precomp(pb, vk.gamma_g2, m_gamma, FMT(annotation_prefix, ".gamma_precomp")),
+        m_delta_precomp(pb, vk.delta_g2, m_delta, FMT(annotation_prefix, ".delta_precomp")),
+        // Miller loop to precompute e(alpha,beta)
+        m_alphabeta(pb, FMT(annotation_prefix, ".alphabeta")),
+        m_alphabeta_loop(pb, m_alpha, m_beta, m_alphabeta, FMT(annotation_prefix, ".alphabeta_miller_loop")),
+        // Input commitment
+        m_IC_base(vk.gamma_ABC_g1.first),
+        m_IC(vk.gamma_ABC_g1.rest)
     {
     }
 
@@ -303,6 +325,10 @@ public:
         m_delta_precomp.generate_r1cs_witness();
 
         m_alphabeta_loop.generate_r1cs_witness();
+    }
+
+    void print(const char *prefix="") {
+
     }
 };
 
@@ -334,7 +360,7 @@ public:
 
     gro16_inputbits_gadget(
         protoboard<FieldT> &pb,
-        pb_variable_array<FieldT> bits,
+        const pb_variable_array<FieldT> bits,
         const std::string &annotation_prefix
     ) :
         gadget<FieldT>(pb, annotation_prefix),
@@ -363,15 +389,18 @@ public:
         for (const auto &el : inputs)
         {
             const auto el_bits = libff::convert_field_element_to_bit_vector(el, T::size_in_bits());
-
-            for( const auto b : el_bits )
+            for( const auto b : el_bits ) {
                 this->pb.val(bits[i++]) = (b ? 1 : 0);
+            }
         }
     }
 
     void generate_r1cs_constraints()
     {
         // ... no constraints needed here
+    }
+
+    void print(const char *prefix="") {
     }
 };
 
@@ -416,17 +445,17 @@ public:
         m_acc_result(pb, ".acc"),
         m_acc_result_precomp_gadget(pb, m_acc_result, m_acc_result_precomp, FMT(annotation_prefix, ".C_precompute")),
         m_acc(pb,
-              *vkp.m_IC_raw.begin(),
+              vkp.m_IC_base,
               {bits.bits.begin(), bits.bits.end()},
               FieldT::size_in_bits(),
-              {vkp.m_IC_raw.begin() + 1, vkp.m_IC_raw.end()},    // slice IC[1:]
+              vkp.m_IC,
               m_acc_result,
               FMT(annotation_prefix, ".acc_gadget")),
         m_ppg(pb,
               {
-                pairing_input_pair<ppT>(m_A, m_B),
                 pairing_input_pair<ppT>(m_acc_result_precomp, vkp.m_gamma),
-                pairing_input_pair<ppT>(m_C, vkp.m_delta)
+                pairing_input_pair<ppT>(m_C, vkp.m_delta),
+                pairing_input_pair<ppT>(m_A, m_B)
               },
               {vkp.m_alphabeta},
               FMT(annotation_prefix, ".pairing_product"))
@@ -452,6 +481,13 @@ public:
         m_acc.generate_r1cs_constraints();
         m_acc_result_precomp_gadget.generate_r1cs_constraints();
         m_ppg.generate_r1cs_constraints();
+
+        this->pb.add_r1cs_constraint(r1cs_constraint<FieldT>(m_ppg.result_is_one, 1, 1), FMT(this->annotation_prefix, ".result must be 1"));
+    }
+
+    void print(const char *prefix="") {
+        std::cout << prefix << ".m_acc_result.X = "; this->pb.lc_val(m_acc_result.X).print();
+        std::cout << prefix << ".m_acc_result.Y = "; this->pb.lc_val(m_acc_result.Y).print();        
     }
 };
 

@@ -119,7 +119,6 @@ public:
 
     std::vector<Fqk_variable<ppT> > m_miller_results;
     std::vector<miller_loop_gadget<ppT> > m_miller_loops;
-    std::vector<Fqk_variable<ppT>> m_precomputed_loops;
     std::vector<Fqk_variable<ppT> > m_product_results;
     std::vector<Fqk_mul_gadget<ppT> > m_product;
     std::shared_ptr<final_exp_gadget<ppT> > m_final_exp;
