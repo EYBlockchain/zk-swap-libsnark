@@ -38,8 +38,20 @@ public:
     G1_variable(protoboard<FieldT> &pb,
                 const std::string &annotation_prefix);
     G1_variable(protoboard<FieldT> &pb,
+                const pb_linear_combination<FieldT> &X,
+                const pb_linear_combination<FieldT> &Y,
+                const std::string &annotation_prefix);
+    G1_variable(protoboard<FieldT> &pb,
                 const libff::G1<other_curve<ppT> > &P,
                 const std::string &annotation_prefix);
+
+    G1_variable<ppT> negate() const
+    {
+        pb_linear_combination<FieldT> neg_Y;
+        neg_Y.assign(this->pb, this->Y * -1);
+        neg_Y.evaluate(this->pb);
+        return G1_variable<ppT>(this->pb, this->X, neg_Y, FMT(this->annotation_prefix, ".neg"));
+    }
 
     void generate_r1cs_witness(const libff::G1<other_curve<ppT> > &elt);
 

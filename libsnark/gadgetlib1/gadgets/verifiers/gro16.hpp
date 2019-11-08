@@ -11,7 +11,7 @@ namespace libsnark {
 
 
 /**
-* Holds a Groth16 proof with its inputs
+* Holds a Groth16 proof (but not its inputs)
 * The A, B and C points are validated
 */
 template<typename ppT>
