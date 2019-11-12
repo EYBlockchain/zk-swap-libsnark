@@ -411,9 +411,17 @@ public:
         }
     }
 
-    void generate_r1cs_constraints()
+    void generate_r1cs_constraints(bool enforce_bitness = true)
     {
-        // ... no constraints needed here
+        if( enforce_bitness )
+        {
+            int i = 0;
+            for( auto &bit_var : bits )
+            {
+                generate_boolean_r1cs_constraint<FieldT>(this->pb, bit_var, FMT(this->annotation_prefix, ".bitness[%d]", i));
+                i += 1;
+            }
+        }
     }
 
     void print(const char *prefix="") {
@@ -421,71 +429,6 @@ public:
 };
 
 
-
-
-
-/*
-//
-// e(A*G^{alpha}, B*H^{beta}) = e(G^{alpha}, H^{beta}) * e(G^{psi}, H^{gamma})
-//                              * e(C, H)
-// where psi = \sum_{i=0}^l input_i pvk.query[i]
-//
-if (!Pairing_v1.pairingProd4(
-		vk.Galpha, vk.Hbeta,
-		vk_dot_inputs, vk.Hgamma,
-		proof.C, vk.H,
-		Pairing_v1.negate(Pairing_v1.addition(proof.A, vk.Galpha)), Pairing_v1.addition2(proof.B, vk.Hbeta))) {
-  return 1;
-}
-
-
-//
-// e(A, H^{gamma}) = e(G^{gamma}, B)
-//
-if (!Pairing_v1.pairingProd2(proof.A, vk.Hgamma, Pairing_v1.negate(vk.Ggamma), proof.B)) {
-  return 2;
-}
-
-
-// This translates into:
-
-// a = miller_loop(vk.G_alpha, vk.H_beta)
-a_1 = g1_prep(vk.G_alpha)
-a_2 = g2_prep(vk.H_beta)
-a = miller_loop(a_1, a_2)
-
-// b = miller_loop(IC, vk.H_gamma)
-b_1 = g1_prep(IC)
-b_2 = g2_prep(vk.H_gamma)
-b = miller_loop(b_1, b_2)
-
-// c = miller_loop(C, vk.H)
-c_1 = g1_prep(C)
-c_2 = g2_prep(vk.H)
-c = miller_loop(c_1, c_2)
-
-d = g1_add(proof.A, vk.G_alpha)
-e = g2_add(proof.B, vk.H_beta)
-f = g1_neg(d)
-
-// g = miller_loop(f, e)
-g_1 = g1_prep(f)
-g_2 = g2_prep(e)
-g = miller_loop(g_1, g_2)
-assert ppg([a, b, c, g])
-
-// h = miller_loop(proof.A, vk.H_gamma)
-h_1 = g1_prep(proof.A)
-h_2 = g2_prep(vk.H_gamma)
-h = miller_loop(h_1, h_2)
-
-i = g1_neg(vk.G_gamma)
-// j = miller_loop(i, proof.B)
-j_1 = g1_prep(i)
-j_2 = g2_prep(proof.B)
-j = miller_loop(j_1, j_2)
-assert ppg([h, j])
-*/
 template<typename ppT>
 class gm17_verifier_gadget : public gadget<libff::Fr<ppT>> {
 public:
@@ -543,7 +486,7 @@ public:
     ) :
         gadget<FieldT>(pb, annotation_prefix),
 
-        m_acc_result(pb, ".acc"),
+        m_acc_result(pb, ".acc"),   // psi = \sum_{i=0}^l input_i pvk.query[i]
         m_acc_result_precomp_gadget(pb, m_acc_result, m_acc_result_precomp, FMT(annotation_prefix, ".acc_precompute")),
         m_acc(pb,
               vk.query[0],
@@ -555,27 +498,30 @@ public:
 
 
         d(pb, FMT(annotation_prefix, ".d")),
-        d_gadget(pb, proof.A, vk.G_alpha, d, FMT(annotation_prefix, ".d_gadget")),
-        e_gadget(pb, proof.B, vk.H_beta, FMT(annotation_prefix, ".e_gadget")),
+        d_gadget(pb, proof.A, vk.G_alpha, d, FMT(annotation_prefix, ".d_gadget")),  // A+G^{\alpha}
+        e_gadget(pb, proof.B, vk.H_beta, FMT(annotation_prefix, ".e_gadget")),      // B+H^{\beta}
 
-        f(d.negate()),
+        f(d.negate()),  // negate lhs, will provide same result as test1_l.unitary_inverse()
 
-        proof_C_precomp_gadget(pb, proof.C, proof_C_precomp, FMT(annotation_prefix, ".proof_C_precomp_gadget")),
+        proof_C_precomp_gadget(pb, proof.C, proof_C_precomp, FMT(annotation_prefix, ".proof_C_precomp_gadget")),    // precompute_G1(proof.C)
 
-        g_1_gadget(pb, f, g_1, FMT(annotation_prefix, ".g_1_gadget")),
-        g_2_gadget(pb, e_gadget.result, g_2, FMT(annotation_prefix, ".g_2_gadget")),
+        g_1_gadget(pb, f, g_1, FMT(annotation_prefix, ".g_1_gadget")),                  // precompute_G1(A+G^{\alpha})
+        g_2_gadget(pb, e_gadget.result, g_2, FMT(annotation_prefix, ".g_2_gadget")),    // precompute_G2(B+H^{\beta})
 
+        // test1... e(A*G^{alpha}, B*H^{beta}) = e(G^{alpha}, H^{beta}) * e(G^{psi}, H^{gamma})
         ppg_abcg(pb,
             {
-                pairing_input_pair<ppT>(vkp.G_alpha, vkp.H_beta),
-                pairing_input_pair<ppT>(m_acc_result_precomp, vkp.H_gamma),
-                pairing_input_pair<ppT>(proof_C_precomp, vkp.H),
-                pairing_input_pair<ppT>(g_1, g_2)
-            }, FMT(annotation_prefix, ".ppg_abcg")),
+                pairing_input_pair<ppT>(g_1, g_2),                              // test1_l
+                pairing_input_pair<ppT>(m_acc_result_precomp, vkp.H_gamma),     // test1_r2
+                pairing_input_pair<ppT>(proof_C_precomp, vkp.H)                 // test1_r3
+            },
+            {vkp.G_alpha_H_beta},                                               // test1_r1
+            FMT(annotation_prefix, ".ppg_abcg")),
 
         proof_A_precomp_gadget(pb, proof.A, proof_A_precomp, FMT(annotation_prefix, ".proof_A_precomp_gadget")),
         proof_B_precomp_gadget(pb, proof.B, proof_B_precomp, FMT(annotation_prefix, ".proof_B_precomp_gadget")),
 
+        // test2... e(A, H^{gamma}) = e(G^{gamma}, B)
         ppg_hj(pb,
             {
                 pairing_input_pair<ppT>(proof_A_precomp, vkp.H_gamma),
@@ -592,6 +538,9 @@ public:
 
     void generate_r1cs_witness()
     {
+        m_acc.generate_r1cs_witness();
+        m_acc_result_precomp_gadget.generate_r1cs_witness();
+
         d_gadget.generate_r1cs_witness();
         e_gadget.generate_r1cs_witness();
         proof_C_precomp_gadget.generate_r1cs_witness();
@@ -614,6 +563,9 @@ public:
 
     void generate_r1cs_constraints()
     {
+        m_acc.generate_r1cs_constraints();
+        m_acc_result_precomp_gadget.generate_r1cs_constraints();
+
         d_gadget.generate_r1cs_constraints();
         e_gadget.generate_r1cs_constraints();
         proof_C_precomp_gadget.generate_r1cs_constraints();

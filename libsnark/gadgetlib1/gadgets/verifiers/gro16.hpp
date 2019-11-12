@@ -395,9 +395,17 @@ public:
         }
     }
 
-    void generate_r1cs_constraints()
+    void generate_r1cs_constraints(bool enforce_bitness = true)
     {
-        // ... no constraints needed here
+        if( enforce_bitness )
+        {
+            int i = 0;
+            for( auto &bit_var : bits )
+            {
+                generate_boolean_r1cs_constraint<FieldT>(this->pb, bit_var, FMT(this->annotation_prefix, ".bitness[%d]", i));
+                i += 1;
+            }
+        }
     }
 
     void print(const char *prefix="") {

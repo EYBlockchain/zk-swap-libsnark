@@ -51,6 +51,8 @@ public:
 
     void generate_r1cs_witness(const libff::G2<other_curve<ppT> > &Q);
 
+    const libff::G2<other_curve<ppT>> get_point();
+
     // (See a comment in r1cs_ppzksnark_verifier_gadget.hpp about why
     // we mark this function noinline.) TODO: remove later
     static size_t __attribute__((noinline)) size_in_bits();

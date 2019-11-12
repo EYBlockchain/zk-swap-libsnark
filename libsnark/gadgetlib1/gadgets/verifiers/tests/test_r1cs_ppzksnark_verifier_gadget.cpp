@@ -579,7 +579,11 @@ int main(void)
     libff::mnt4_pp::init_public_params();
     libff::mnt6_pp::init_public_params();
 
-    /*
+    test_G2_add_gadget_const<libff::mnt4_pp>("mnt4");
+    test_G2_add_gadget_const<libff::mnt6_pp>("mnt6");
+
+    test_G2_add_gadget_var<libff::mnt4_pp>("mnt4");
+    test_G2_add_gadget_var<libff::mnt6_pp>("mnt6");
 
     test_mul<libff::mnt4_Fq2, Fp2_variable, Fp2_mul_gadget>("mnt4_Fp2");
     test_sqr<libff::mnt4_Fq2, Fp2_variable, Fp2_sqr_gadget>("mnt4_Fp2");
@@ -634,7 +638,6 @@ int main(void)
 
     test_gro16_verifier<libff::mnt4_pp, libff::mnt6_pp>("mnt4", "mnt6");
     test_gro16_verifier<libff::mnt6_pp, libff::mnt4_pp>("mnt6", "mnt4");
-    */
 
     test_gm17_verifier<libff::mnt4_pp, libff::mnt6_pp>("mnt4", "mnt6");
     test_gm17_verifier<libff::mnt6_pp, libff::mnt4_pp>("mnt6", "mnt4");
