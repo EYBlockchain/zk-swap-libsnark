@@ -42,10 +42,16 @@ public:
     G2_variable(protoboard<FieldT> &pb,
                 const std::string &annotation_prefix);
     G2_variable(protoboard<FieldT> &pb,
+                std::shared_ptr<Fqe_variable<ppT> > X,
+                std::shared_ptr<Fqe_variable<ppT> > Y,
+                const std::string &annotation_prefix);
+    G2_variable(protoboard<FieldT> &pb,
                 const libff::G2<other_curve<ppT> > &Q,
                 const std::string &annotation_prefix);
 
     void generate_r1cs_witness(const libff::G2<other_curve<ppT> > &Q);
+
+    const libff::G2<other_curve<ppT>> get_point();
 
     // (See a comment in r1cs_ppzksnark_verifier_gadget.hpp about why
     // we mark this function noinline.) TODO: remove later
@@ -80,6 +86,39 @@ public:
     void generate_r1cs_constraints();
     void generate_r1cs_witness();
 };
+
+template<typename ppT>
+class G2_add_gadget : public gadget<libff::Fr<ppT> > {
+public:
+    typedef libff::Fr<ppT> FieldT;
+    typedef libff::Fqe<other_curve<ppT> > FqeT;
+
+    const FieldT minus_one;
+
+    G2_variable<ppT> A;
+    G2_variable<ppT> B;
+
+    Fqe_variable<ppT> lambda;
+    Fqe_variable<ppT> inv;
+    Fqe_variable<ppT> m_D;
+    Fqe_variable<ppT> m_E;
+    Fqe_variable<ppT> m_F;
+    Fqe_variable<ppT> m_G;
+    G2_variable<ppT> result;
+
+    Fqe_mul_gadget<ppT> bxax_mul_inv_gadget;       // (B.X - A.X) * inv
+    Fqe_sqr_gadget<ppT> sqr_lambda_gadget;         // lambda^2
+    Fqe_mul_gadget<ppT> lambda_mul_axcx_gadget;    // lambda * (A.X - C.X)
+    Fqe_mul_gadget<ppT> lambda_mul_bxax_gadget;    // lambda * (B.X - A.X)
+
+    G2_add_gadget(protoboard<FieldT> &pb,
+                  const G2_variable<ppT> &A,
+                  const G2_variable<ppT> &B,
+                  const std::string &annotation_prefix);
+    void generate_r1cs_constraints();
+    void generate_r1cs_witness();
+};
+
 
 } // libsnark
 

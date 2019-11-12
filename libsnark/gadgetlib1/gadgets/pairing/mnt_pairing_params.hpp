@@ -24,6 +24,7 @@
 #include <libsnark/gadgetlib1/gadgets/fields/fp4_gadgets.hpp>
 #include <libsnark/gadgetlib1/gadgets/fields/fp6_gadgets.hpp>
 #include <libsnark/gadgetlib1/gadgets/pairing/pairing_params.hpp>
+#include <libsnark/gadgetlib1/gadgets/pairing/weierstrass_miller_loop.hpp>
 
 namespace libsnark {
 
@@ -61,6 +62,7 @@ public:
 
     typedef libff::mnt6_pp other_curve_type;
 
+    typedef mnt_miller_loop_gadget<libff::mnt4_pp> miller_loop_gadget;
     typedef mnt_e_over_e_miller_loop_gadget<libff::mnt4_pp> e_over_e_miller_loop_gadget_type;
     typedef mnt_e_times_e_over_e_miller_loop_gadget<libff::mnt4_pp> e_times_e_over_e_miller_loop_gadget_type;
     typedef mnt4_final_exp_gadget<libff::mnt4_pp> final_exp_gadget_type;
@@ -91,6 +93,7 @@ public:
 
     typedef libff::mnt4_pp other_curve_type;
 
+    typedef mnt_miller_loop_gadget<libff::mnt6_pp> miller_loop_gadget;
     typedef mnt_e_over_e_miller_loop_gadget<libff::mnt6_pp> e_over_e_miller_loop_gadget_type;
     typedef mnt_e_times_e_over_e_miller_loop_gadget<libff::mnt6_pp> e_times_e_over_e_miller_loop_gadget_type;
     typedef mnt6_final_exp_gadget<libff::mnt6_pp> final_exp_gadget_type;

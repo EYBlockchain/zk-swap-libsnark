@@ -13,8 +13,11 @@
 #include <libsnark/gadgetlib1/gadgets/fields/fp4_gadgets.hpp>
 #include <libsnark/gadgetlib1/gadgets/fields/fp6_gadgets.hpp>
 #include <libsnark/gadgetlib1/gadgets/verifiers/r1cs_ppzksnark_verifier_gadget.hpp>
+#include <libsnark/gadgetlib1/gadgets/verifiers/gro16.hpp>
+#include <libsnark/gadgetlib1/gadgets/verifiers/gm17.hpp>
 #include <libsnark/relations/constraint_satisfaction_problems/r1cs/examples/r1cs_examples.hpp>
 #include <libsnark/zk_proof_systems/ppzksnark/r1cs_ppzksnark/r1cs_ppzksnark.hpp>
+#include <libsnark/zk_proof_systems/ppzksnark/r1cs_gg_ppzksnark/r1cs_gg_ppzksnark.hpp>
 
 using namespace libsnark;
 
@@ -166,6 +169,136 @@ void test_hardcoded_verifier(const std::string &annotation_A, const std::string 
     printf("number of constraints for verifier: %zu (verifier is implemented in %s constraints and verifies %s proofs))\n",
            pb.num_constraints(), annotation_B.c_str(), annotation_A.c_str());
 }
+
+template<typename ppT_A, typename ppT_B>
+void test_gro16_verifier(const std::string &annotation_A, const std::string &annotation_B)
+{
+    typedef libff::Fr<ppT_A> FieldT_A;
+    typedef libff::Fr<ppT_B> FieldT_B;
+
+    // Example constaint system
+    const size_t num_constraints = 50;
+    const size_t primary_input_size = 3;
+    auto example = generate_r1cs_example_with_field_input<FieldT_A>(num_constraints, primary_input_size);
+    assert(example.primary_input.size() == primary_input_size);
+    assert(example.constraint_system.is_satisfied(example.primary_input, example.auxiliary_input));
+
+    // Create keypair and proof for constraints
+    auto keypair = r1cs_gg_ppzksnark_generator<ppT_A>(example.constraint_system);
+    auto pi = r1cs_gg_ppzksnark_prover<ppT_A>(keypair.pk, example.primary_input, example.auxiliary_input);
+    bool bit = r1cs_gg_ppzksnark_verifier_strong_IC<ppT_A>(keypair.vk, example.primary_input, pi);
+    assert(bit);
+
+    protoboard<FieldT_B> pb;
+    // Create gadgets to verify
+    gro16_inputbits_gadget<ppT_B> input_as_bits(pb, primary_input_size, "input_bits");
+    gro16_proof_var<ppT_B> proof(pb, "proof");
+    gro16_vk_var<ppT_B> vk(pb, primary_input_size, "vk");
+    gro16_vk_preprocessor<ppT_B> vkp(pb, vk, "vkp");
+    gro16_verifier_gadget<ppT_B> verifier(pb, proof, vkp, input_as_bits, "verifier");
+
+    // Generate constraints, displaying breakdown per function
+    PROFILE_CONSTRAINTS(pb, "convert 3 input to bits") {
+        input_as_bits.generate_r1cs_constraints();
+    }
+    PROFILE_CONSTRAINTS(pb, "validate proof") {
+        proof.generate_r1cs_constraints();
+    }
+    PROFILE_CONSTRAINTS(pb, "validate verification key") {
+        vk.generate_r1cs_constraints();
+    }
+    PROFILE_CONSTRAINTS(pb, "verification key constraints") {
+        vkp.generate_r1cs_constraints();
+    }
+    PROFILE_CONSTRAINTS(pb, "proof verifier constraints") {
+        verifier.generate_r1cs_constraints();
+    }
+
+    // Create witness
+    input_as_bits.generate_r1cs_witness(example.primary_input);
+    proof.generate_r1cs_witness(pi);
+    vk.generate_r1cs_witness(keypair.vk);
+    vkp.generate_r1cs_witness();
+    verifier.generate_r1cs_witness();
+
+    printf("positive test:\n");
+    assert(pb.is_satisfied());
+
+    pb.val(input_as_bits.bits[0]) = FieldT_B::one() - pb.val(input_as_bits.bits[0]);
+    verifier.generate_r1cs_witness();
+    printf("negative test:\n");
+    assert(!pb.is_satisfied());
+
+    PRINT_CONSTRAINT_PROFILING();
+    printf("number of constraints for verifier: %zu (verifier is implemented in %s constraints and verifies %s proofs))\n",
+           pb.num_constraints(), annotation_B.c_str(), annotation_A.c_str());
+}
+
+
+template<typename ppT_A, typename ppT_B>
+void test_gm17_verifier(const std::string &annotation_A, const std::string &annotation_B)
+{
+    typedef libff::Fr<ppT_A> FieldT_A;
+    typedef libff::Fr<ppT_B> FieldT_B;
+
+    // Example constaint system
+    const size_t num_constraints = 50;
+    const size_t primary_input_size = 3;
+    auto example = generate_r1cs_example_with_field_input<FieldT_A>(num_constraints, primary_input_size);
+    assert(example.primary_input.size() == primary_input_size);
+    assert(example.constraint_system.is_satisfied(example.primary_input, example.auxiliary_input));
+
+    // Create keypair and proof for constraints
+    auto keypair = r1cs_se_ppzksnark_generator<ppT_A>(example.constraint_system);
+    auto pi = r1cs_se_ppzksnark_prover<ppT_A>(keypair.pk, example.primary_input, example.auxiliary_input);
+    bool bit = r1cs_se_ppzksnark_verifier_strong_IC<ppT_A>(keypair.vk, example.primary_input, pi);
+    assert(bit);
+
+    protoboard<FieldT_B> pb;
+    // Create gadgets to verify
+    gm17_inputbits_gadget<ppT_B> input_as_bits(pb, primary_input_size, "input_bits");
+    gm17_proof_var<ppT_B> proof(pb, "proof");
+    gm17_vk_var<ppT_B> vk(pb, primary_input_size, "vk");
+    gm17_vk_preprocessor<ppT_B> vkp(pb, vk, "vkp");
+    gm17_verifier_gadget<ppT_B> verifier(pb, proof, vk, vkp, input_as_bits, "verifier");
+
+    // Generate constraints, displaying breakdown per function
+    PROFILE_CONSTRAINTS(pb, "convert 3 input to bits") {
+        input_as_bits.generate_r1cs_constraints();
+    }
+    PROFILE_CONSTRAINTS(pb, "validate proof") {
+        proof.generate_r1cs_constraints();
+    }
+    PROFILE_CONSTRAINTS(pb, "validate verification key") {
+        vk.generate_r1cs_constraints();
+    }
+    PROFILE_CONSTRAINTS(pb, "verification key constraints") {
+        vkp.generate_r1cs_constraints();
+    }
+    PROFILE_CONSTRAINTS(pb, "proof verifier constraints") {
+        verifier.generate_r1cs_constraints();
+    }
+
+    // Create witness
+    input_as_bits.generate_r1cs_witness(example.primary_input);
+    proof.generate_r1cs_witness(pi);
+    vk.generate_r1cs_witness(keypair.vk);
+    vkp.generate_r1cs_witness();
+    verifier.generate_r1cs_witness();
+
+    printf("positive test:\n");
+    assert(pb.is_satisfied());
+
+    pb.val(input_as_bits.bits[0]) = FieldT_B::one() - pb.val(input_as_bits.bits[0]);
+    verifier.generate_r1cs_witness();
+    printf("negative test:\n");
+    assert(!pb.is_satisfied());
+
+    PRINT_CONSTRAINT_PROFILING();
+    printf("number of constraints for verifier: %zu (verifier is implemented in %s constraints and verifies %s proofs))\n",
+           pb.num_constraints(), annotation_B.c_str(), annotation_A.c_str());
+}
+
 
 template<typename FpExtT, template<class> class VarT, template<class> class MulT>
 void test_mul(const std::string &annotation)
@@ -328,6 +461,72 @@ void test_full_pairing(const std::string &annotation)
     printf("number of constraints for full pairing (Fr is %s)  = %zu\n", annotation.c_str(), pb.num_constraints());
 }
 
+
+template<typename ppT>
+void test_pairing_product_gadget(const std::string &annotation)
+{
+    typedef libff::Fr<ppT> FieldT;
+
+    protoboard<FieldT> pb;
+    const auto P_val = libff::Fr<other_curve<ppT> >::random_element() * libff::G1<other_curve<ppT> >::one();
+    const auto nP_val = libff::Fr<other_curve<ppT> >::random_element() * libff::G1<other_curve<ppT> >::one();
+    const auto Q_val = libff::Fr<other_curve<ppT> >::random_element() * libff::G2<other_curve<ppT> >::one();
+    //const auto nP_val = -P_val;
+
+    G1_variable<ppT> P(pb, "P");
+    G1_variable<ppT> nP(pb, "nP");
+    G2_variable<ppT> Q(pb, "Q");
+    G1_precomputation<ppT> prec_P;
+    G1_precomputation<ppT> prec_nP;
+    G2_precomputation<ppT> prec_Q;
+
+    precompute_G1_gadget<ppT> compute_prec_P(pb, P, prec_P, "compute_prec_P");
+    precompute_G1_gadget<ppT> compute_prec_nP(pb, nP, prec_nP, "compute_prec_nP");
+    precompute_G2_gadget<ppT> compute_prec_Q(pb, Q, prec_Q, "compute_prec_Q");
+
+    std::vector<pairing_input_pair<ppT>> pairs;
+    pairs.emplace_back(prec_P, prec_Q);
+    pairs.emplace_back(prec_nP, prec_Q);
+    pairing_product_gadget<ppT> ppg(pb, pairs, "ppg");
+
+    PROFILE_CONSTRAINTS(pb, "Precompute points") {
+        compute_prec_P.generate_r1cs_constraints();
+        compute_prec_nP.generate_r1cs_constraints();
+        compute_prec_Q.generate_r1cs_constraints();
+    }
+
+    PROFILE_CONSTRAINTS(pb, "Pairing Product Gadget")
+    {
+        ppg.generate_r1cs_constraints();
+    }
+    PRINT_CONSTRAINT_PROFILING();
+
+    P.generate_r1cs_witness(P_val);
+    compute_prec_P.generate_r1cs_witness();
+
+    nP.generate_r1cs_witness(nP_val);
+    compute_prec_nP.generate_r1cs_witness();
+
+    Q.generate_r1cs_witness(Q_val);
+    compute_prec_Q.generate_r1cs_witness();
+
+    ppg.generate_r1cs_witness();
+
+    libff::affine_ate_G1_precomp<other_curve<ppT> > native_prec_P = other_curve<ppT>::affine_ate_precompute_G1(P_val);
+    libff::affine_ate_G1_precomp<other_curve<ppT> > native_prec_nP = other_curve<ppT>::affine_ate_precompute_G1(nP_val);
+    libff::affine_ate_G2_precomp<other_curve<ppT> > native_prec_Q = other_curve<ppT>::affine_ate_precompute_G2(Q_val);
+    libff::Fqk<other_curve<ppT> > native_miller_result_1 = other_curve<ppT>::affine_ate_miller_loop(native_prec_P, native_prec_Q);
+    libff::Fqk<other_curve<ppT> > native_miller_result_2 = other_curve<ppT>::affine_ate_miller_loop(native_prec_nP, native_prec_Q);
+    libff::Fqk<other_curve<ppT> > native_miller_product = native_miller_result_1 * native_miller_result_2;
+    libff::Fqk<other_curve<ppT> > native_finexp_result = other_curve<ppT>::final_exponentiation(native_miller_product);
+
+    assert(pb.is_satisfied());
+    assert(ppg.result().get_element() == native_finexp_result);
+
+    printf("number of constraints for full pairing (Fr is %s)  = %zu\n", annotation.c_str(), pb.num_constraints());
+}
+
+
 template<typename ppT>
 void test_full_precomputed_pairing(const std::string &annotation)
 {
@@ -380,6 +579,12 @@ int main(void)
     libff::mnt4_pp::init_public_params();
     libff::mnt6_pp::init_public_params();
 
+    test_G2_add_gadget_const<libff::mnt4_pp>("mnt4");
+    test_G2_add_gadget_const<libff::mnt6_pp>("mnt6");
+
+    test_G2_add_gadget_var<libff::mnt4_pp>("mnt4");
+    test_G2_add_gadget_var<libff::mnt6_pp>("mnt6");
+
     test_mul<libff::mnt4_Fq2, Fp2_variable, Fp2_mul_gadget>("mnt4_Fp2");
     test_sqr<libff::mnt4_Fq2, Fp2_variable, Fp2_sqr_gadget>("mnt4_Fp2");
 
@@ -427,4 +632,13 @@ int main(void)
 
     test_hardcoded_verifier<libff::mnt4_pp, libff::mnt6_pp>("mnt4", "mnt6");
     test_hardcoded_verifier<libff::mnt6_pp, libff::mnt4_pp>("mnt6", "mnt4");
+
+    test_pairing_product_gadget<libff::mnt4_pp>("mnt4");
+    test_pairing_product_gadget<libff::mnt6_pp>("mnt6");
+
+    test_gro16_verifier<libff::mnt4_pp, libff::mnt6_pp>("mnt4", "mnt6");
+    test_gro16_verifier<libff::mnt6_pp, libff::mnt4_pp>("mnt6", "mnt4");
+
+    test_gm17_verifier<libff::mnt4_pp, libff::mnt6_pp>("mnt4", "mnt6");
+    test_gm17_verifier<libff::mnt6_pp, libff::mnt4_pp>("mnt6", "mnt4");
 }

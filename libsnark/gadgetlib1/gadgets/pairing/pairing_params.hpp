@@ -105,6 +105,9 @@ template<typename ppT>
 using other_curve = typename pairing_selector<ppT>::other_curve_type;
 
 template<typename ppT>
+using miller_loop_gadget = typename pairing_selector<ppT>::miller_loop_gadget;
+
+template<typename ppT>
 using e_over_e_miller_loop_gadget = typename pairing_selector<ppT>::e_over_e_miller_loop_gadget_type;
 template<typename ppT>
 using e_times_e_over_e_miller_loop_gadget = typename pairing_selector<ppT>::e_times_e_over_e_miller_loop_gadget_type;

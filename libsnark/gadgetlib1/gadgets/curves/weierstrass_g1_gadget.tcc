@@ -18,6 +18,17 @@ namespace libsnark {
 
 template<typename ppT>
 G1_variable<ppT>::G1_variable(protoboard<FieldT> &pb,
+                              const pb_linear_combination<FieldT> &X,
+                              const pb_linear_combination<FieldT> &Y,
+                              const std::string &annotation_prefix) :
+    gadget<FieldT>(pb, annotation_prefix),
+    X(X),
+    Y(Y)
+{
+}
+
+template<typename ppT>
+G1_variable<ppT>::G1_variable(protoboard<FieldT> &pb,
                               const std::string &annotation_prefix) :
     gadget<FieldT>(pb, annotation_prefix)
 {
