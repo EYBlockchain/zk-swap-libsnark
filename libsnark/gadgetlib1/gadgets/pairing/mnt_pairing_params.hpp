@@ -18,6 +18,8 @@
 
 #include <libff/algebra/curves/mnt/mnt4/mnt4_pp.hpp>
 #include <libff/algebra/curves/mnt/mnt6/mnt6_pp.hpp>
+#include <libff/algebra/curves/mnt753/mnt4753/mnt4753_pp.hpp>
+#include <libff/algebra/curves/mnt753/mnt6753/mnt6753_pp.hpp>
 
 #include <libsnark/gadgetlib1/gadgets/fields/fp2_gadgets.hpp>
 #include <libsnark/gadgetlib1/gadgets/fields/fp3_gadgets.hpp>
@@ -100,6 +102,70 @@ public:
 
     static const constexpr libff::bigint<libff::mnt4_Fr::num_limbs> &pairing_loop_count = libff::mnt4_ate_loop_count;
 };
+
+
+
+/**
+ * Specialization for MNT4753.
+ */
+template<>
+class pairing_selector<libff::mnt4753_pp> {
+public:
+    typedef libff::Fr<libff::mnt4753_pp> FieldT;
+    typedef libff::Fqe<libff::mnt6753_pp> FqeT;
+    typedef libff::Fqk<libff::mnt6753_pp> FqkT;
+
+    typedef Fp3_variable<FqeT> Fqe_variable_type;
+    typedef Fp3_mul_gadget<FqeT> Fqe_mul_gadget_type;
+    typedef Fp3_mul_by_lc_gadget<FqeT> Fqe_mul_by_lc_gadget_type;
+    typedef Fp3_sqr_gadget<FqeT> Fqe_sqr_gadget_type;
+
+    typedef Fp6_variable<FqkT> Fqk_variable_type;
+    typedef Fp6_mul_gadget<FqkT> Fqk_mul_gadget_type;
+    typedef Fp6_mul_by_2345_gadget<FqkT> Fqk_special_mul_gadget_type;
+    typedef Fp6_sqr_gadget<FqkT> Fqk_sqr_gadget_type;
+
+    typedef libff::mnt6753_pp other_curve_type;
+
+    typedef mnt_miller_loop_gadget<libff::mnt4753_pp> miller_loop_gadget;
+    typedef mnt_e_over_e_miller_loop_gadget<libff::mnt4753_pp> e_over_e_miller_loop_gadget_type;
+    typedef mnt_e_times_e_over_e_miller_loop_gadget<libff::mnt4753_pp> e_times_e_over_e_miller_loop_gadget_type;
+    typedef mnt4_final_exp_gadget<libff::mnt4753_pp> final_exp_gadget_type;
+
+    static const constexpr libff::bigint<libff::mnt6753_Fr::num_limbs> &pairing_loop_count = libff::mnt6753_ate_loop_count;
+};
+
+/**
+ * Specialization for MNT6.
+ */
+template<>
+class pairing_selector<libff::mnt6753_pp> {
+public:
+    typedef libff::Fr<libff::mnt6753_pp> FieldT;
+
+    typedef libff::Fqe<libff::mnt4753_pp> FqeT;
+    typedef libff::Fqk<libff::mnt4753_pp> FqkT;
+
+    typedef Fp2_variable<FqeT> Fqe_variable_type;
+    typedef Fp2_mul_gadget<FqeT> Fqe_mul_gadget_type;
+    typedef Fp2_mul_by_lc_gadget<FqeT> Fqe_mul_by_lc_gadget_type;
+    typedef Fp2_sqr_gadget<FqeT> Fqe_sqr_gadget_type;
+
+    typedef Fp4_variable<FqkT> Fqk_variable_type;
+    typedef Fp4_mul_gadget<FqkT> Fqk_mul_gadget_type;
+    typedef Fp4_mul_gadget<FqkT> Fqk_special_mul_gadget_type;
+    typedef Fp4_sqr_gadget<FqkT> Fqk_sqr_gadget_type;
+
+    typedef libff::mnt4753_pp other_curve_type;
+
+    typedef mnt_miller_loop_gadget<libff::mnt6753_pp> miller_loop_gadget;
+    typedef mnt_e_over_e_miller_loop_gadget<libff::mnt6753_pp> e_over_e_miller_loop_gadget_type;
+    typedef mnt_e_times_e_over_e_miller_loop_gadget<libff::mnt6753_pp> e_times_e_over_e_miller_loop_gadget_type;
+    typedef mnt6_final_exp_gadget<libff::mnt6753_pp> final_exp_gadget_type;
+
+    static const constexpr libff::bigint<libff::mnt4753_Fr::num_limbs> &pairing_loop_count = libff::mnt4753_ate_loop_count;
+};
+
 
 } // libsnark
 
