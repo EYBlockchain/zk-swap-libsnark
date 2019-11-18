@@ -223,6 +223,11 @@ public:
         return 3;
     }
 
+    size_t num_inputs() const
+    {
+        return query.size() - 1;
+    }
+
     size_t size_in_bits() const
     {
         return (G1_size() * libff::G1<ppT>::size_in_bits() +

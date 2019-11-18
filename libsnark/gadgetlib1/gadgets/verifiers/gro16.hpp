@@ -133,8 +133,7 @@ public:
         assert( n_inputs > 0 );
         for( size_t i = 0; i < n_inputs; i++ )
         {
-            m_IC.emplace_back(this->pb, FMT(annotation_prefix, ".input_%d", i));
-            m_g1_checkers.emplace_back(this->pb, m_IC.back(), FMT(annotation_prefix, ".IC_checker_%d", i));
+            m_g1_checkers.emplace_back(this->pb, m_IC[i], FMT(annotation_prefix, ".IC_checker_%d", i));
         }
 
         m_g2_checkers.reserve(3);
@@ -160,32 +159,37 @@ public:
         m_IC_base(pb, FMT(annotation_prefix, ".IC_base")),
         n_inputs(_n_inputs)
     {
+        assert( n_inputs > 0 );
+        for( size_t i = 0; i < n_inputs; i++ )
+        {
+            m_IC.emplace_back(this->pb, FMT(annotation_prefix, ".input_%d", i));
+        }
+
         _init_checkers();
     }
 
     /**
-    * Fill verification key from already existing variables
-    * When the verification key comes from somewhere else within the circuit
+    * Use a static verification key
     */
     gro16_vk_var(
         protoboard<FieldT> &pb,
-        const G1VarT &alpha,
-        const G2VarT &beta,
-        const G2VarT &gamma,
-        const G2VarT &delta,
-        const G1VarT &IC_base,
-        const std::vector<G1VarT> &IC,
+        const r1cs_gg_ppzksnark_verification_key<other_curve<ppT>> &vk,
         const std::string &annotation_prefix
     ) :
         gadget<FieldT>(pb, annotation_prefix),
-        m_alpha(alpha),
-        m_beta(beta),
-        m_gamma(gamma),
-        m_delta(delta),
-        m_IC_base(IC_base),
-        n_inputs(IC.size()),
-        m_IC(IC)
+        m_alpha(pb, -vk.alpha_g1, FMT(annotation_prefix, ".alpha")),
+        m_beta(pb, vk.beta_g2, FMT(annotation_prefix, ".beta")),
+        m_gamma(pb, vk.gamma_g2, FMT(annotation_prefix, ".gamma")),
+        m_delta(pb, vk.delta_g2, FMT(annotation_prefix, ".delta")),
+        m_IC_base(pb, -vk.gamma_ABC_g1.first, FMT(annotation_prefix, ".IC_base")),
+        n_inputs(vk.gamma_ABC_g1.rest.size())
     {
+        m_IC.reserve(n_inputs);
+        for( unsigned i = 0; i < n_inputs; i++ )
+        {
+            m_IC.emplace_back(pb, -vk.gamma_ABC_g1.rest.values[i], FMT(annotation_prefix, ".IC[%u]", i));
+        }
+
         _init_checkers();
     }
 
@@ -288,6 +292,7 @@ public:
     }
 
     /* Verification key will be constant, no checker gadgets are necessary, only precomputation */
+    /*
     gro16_vk_preprocessor(
         protoboard<FieldT> &pb,
         const r1cs_gg_ppzksnark_verification_key<ppT> &vk,
@@ -306,6 +311,7 @@ public:
         m_IC(vk.gamma_ABC_g1.rest)
     {
     }
+    */
 
     void generate_r1cs_constraints()
     {

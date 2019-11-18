@@ -210,6 +210,12 @@ public:
         return (gamma_ABC_g1.size_in_bits() + 2 * libff::G2<ppT>::size_in_bits());
     }
 
+    size_t num_inputs() const
+    {
+        return gamma_ABC_g1.rest.size();
+    }
+
+
     void print_size() const
     {
         libff::print_indent(); printf("* G1 elements in VK: %zu\n", this->G1_size());

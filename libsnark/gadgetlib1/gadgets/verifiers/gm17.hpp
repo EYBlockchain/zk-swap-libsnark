@@ -111,7 +111,7 @@ public:
 
     G1VarT G_alpha;	// G^{\alpha}
     G1VarT G_gamma;	// G^{\gamma}
-    G2VarT H;			// H
+    G2VarT H;		// H
     G2VarT H_beta;	// H^{\beta}
     G2VarT H_gamma;	// H^{\gamma}
 
@@ -132,7 +132,6 @@ public:
         assert( n_inputs > 0 );
         for( size_t i = 0; i < (n_inputs+1); i++ )
         {
-            query.emplace_back(this->pb, FMT(annotation_prefix, ".input_%d", i));
             m_g1_checkers.emplace_back(this->pb, query.back(), FMT(annotation_prefix, ".query_checker_%d", i));
         }
 
@@ -159,6 +158,11 @@ public:
         H_gamma(pb, FMT(annotation_prefix, ".H_gamma")),
         n_inputs(_n_inputs)
     {
+        assert( n_inputs > 0 );
+        for( size_t i = 0; i < (n_inputs+1); i++ )
+        {
+            query.emplace_back(this->pb, FMT(annotation_prefix, ".input_%d", i));
+        }
         _init_checkers();
     }
 
@@ -168,23 +172,23 @@ public:
     */
     gm17_vk_var(
         protoboard<FieldT> &pb,
-        const G1VarT &G_alpha,
-        const G1VarT &G_gamma,
-        const G2VarT &H,
-        const G2VarT &H_beta,
-        const G2VarT &H_gamma,
-        const std::vector<G1VarT> &IC,
+        const r1cs_se_ppzksnark_verification_key<other_curve<ppT>> &vk,
         const std::string &annotation_prefix
     ) :
         gadget<FieldT>(pb, annotation_prefix),
-        G_alpha(G_alpha),
-        G_gamma(G_gamma),
-        H(H),
-        H_beta(H_beta),
-        H_gamma(H_gamma),
-        n_inputs(IC.size()-1),  // IC always includes the implicit 'ONE' constant as the first element
-        query(IC)
+        G_alpha(pb, vk.G_alpha, FMT(annotation_prefix, ".G_alpha")),
+        G_gamma(pb, vk.G_gamma, FMT(annotation_prefix, ".G_gamma")),
+        H(pb, vk.H, FMT(annotation_prefix, ".H")),
+        H_beta(pb, vk.H_beta, FMT(annotation_prefix, ".H_beta")),
+        H_gamma(pb, vk.H_gamma, FMT(annotation_prefix, ".H_gamma")),
+        n_inputs(vk.query.size()-1)  // IC always includes the implicit 'ONE' constant as the first element
     {
+        query.reserve(vk.query.size());
+        unsigned i = 0;
+        for( const auto &x : vk.query ) {
+            query.emplace_back(pb, x, FMT(annotation_prefix, ".query[%u]", i));
+            i += 1;
+        }
         _init_checkers();
     }
 
@@ -263,7 +267,8 @@ public:
     typedef G1_variable<ppT> G1VarT;
     typedef G2_variable<ppT> G2VarT;
 
-    G1precompT G_alpha;
+    G1VarT G_alpha;
+    G1precompT G_alpha_precomp;
     precompute_G1_gadget<ppT> m_G_alpha_precomp;
 
     G1VarT neg_G_gamma;
@@ -273,7 +278,8 @@ public:
     G2precompT H;
     precompute_G2_gadget<ppT> m_H_precomp;
 
-    G2precompT H_beta;
+    G2VarT H_beta;
+    G2precompT H_beta_precomp;
     precompute_G2_gadget<ppT> m_H_beta_precomp;
 
     G2precompT H_gamma;
@@ -282,21 +288,26 @@ public:
     Fqk_variable<ppT> G_alpha_H_beta;
     miller_loop_gadget<ppT> m_G_alpha_H_beta_loop;
 
+    std::vector<G1VarT> m_query;
+
     gm17_vk_preprocessor(
         protoboard<FieldT> &pb,
         const gm17_vk_var<ppT> &vk,
         const std::string &annotation_prefix
     ) :
         // Precomputation gadget allocates the result variables
-        m_G_alpha_precomp(pb, vk.G_alpha, G_alpha, FMT(annotation_prefix, ".G_alpha_precomp")),
+        G_alpha(vk.G_alpha),
+        m_G_alpha_precomp(pb, vk.G_alpha, G_alpha_precomp, FMT(annotation_prefix, ".G_alpha_precomp")),
         neg_G_gamma(vk.G_gamma.negate()),
         m_G_gamma_precomp(pb, neg_G_gamma, G_gamma, FMT(annotation_prefix, ".G_gamma_precomp")),
         m_H_precomp(pb, vk.H, H, FMT(annotation_prefix, ".H_precomp")),
-        m_H_beta_precomp(pb, vk.H_beta, H_beta, FMT(annotation_prefix, ".H_beta_precomp")),
+        H_beta(vk.H_beta),
+        m_H_beta_precomp(pb, vk.H_beta, H_beta_precomp, FMT(annotation_prefix, ".H_beta_precomp")),
         m_H_gamma_precomp(pb, vk.H_gamma, H_gamma, FMT(annotation_prefix, ".H_gamma_precomp")),
         // Miller loop to precompute e(alpha,beta)
         G_alpha_H_beta(pb, FMT(annotation_prefix, ".G_alpha_H_beta")),
-        m_G_alpha_H_beta_loop(pb, G_alpha, H_beta, G_alpha_H_beta, FMT(annotation_prefix, ".e(G_alpha,H_beta_loop)"))
+        m_G_alpha_H_beta_loop(pb, G_alpha_precomp, H_beta_precomp, G_alpha_H_beta, FMT(annotation_prefix, ".e(G_alpha,H_beta_loop)")),
+        m_query(vk.query)
     {
     }
 
@@ -307,21 +318,22 @@ public:
         const std::string &annotation_prefix
     ) :
         // Precomputation gadget allocates the result variables
-        m_G_alpha_precomp(pb, vk.G_alpha, G_alpha, FMT(annotation_prefix, ".G_alpha_precomp")),
+        G_alpha(vk.G_alpha),
+        m_G_alpha_precomp(pb, vk.G_alpha, G_alpha_precomp, FMT(annotation_prefix, ".G_alpha_precomp")),
         neg_G_gamma(vk.G_gamma.X, -vk.G_gamma.Y),
         m_G_gamma_precomp(pb, neg_G_gamma, G_gamma, FMT(annotation_prefix, ".G_gamma_precomp")),
         m_H_precomp(pb, vk.H, H, FMT(annotation_prefix, ".H_precomp")),
-        m_H_beta_precomp(pb, vk.H_beta, H_beta, FMT(annotation_prefix, ".H_beta_precomp")),
+        H_beta(vk.H_beta),
+        m_H_beta_precomp(pb, vk.H_beta, H_beta_precomp, FMT(annotation_prefix, ".H_beta_precomp")),
         m_H_gamma_precomp(pb, vk.H_gamma, H_gamma, FMT(annotation_prefix, ".H_gamma_precomp")),
         // Miller loop to precompute e(alpha,beta)
         G_alpha_H_beta(pb, FMT(annotation_prefix, ".G_alpha_H_beta")),
-        m_G_alpha_H_beta_loop(pb, G_alpha, H_beta, G_alpha_H_beta, FMT(annotation_prefix, ".e(G_alpha,H_beta_loop)"))
+        m_G_alpha_H_beta_loop(pb, G_alpha_precomp, H_beta_precomp, G_alpha_H_beta, FMT(annotation_prefix, ".e(G_alpha,H_beta_loop)"))
     {
     }
 
     void generate_r1cs_constraints()
     {
-        m_G_alpha_precomp.generate_r1cs_constraints();
         m_G_gamma_precomp.generate_r1cs_constraints();
         m_H_precomp.generate_r1cs_constraints();
         m_H_beta_precomp.generate_r1cs_constraints();
@@ -332,12 +344,10 @@ public:
 
     void generate_r1cs_witness() 
     {
-    	m_G_alpha_precomp.generate_r1cs_witness();
         m_G_gamma_precomp.generate_r1cs_witness();
         m_H_precomp.generate_r1cs_witness();
         m_H_beta_precomp.generate_r1cs_witness();
         m_H_gamma_precomp.generate_r1cs_witness();
-
         m_G_alpha_H_beta_loop.generate_r1cs_witness();
     }
 
@@ -479,7 +489,6 @@ public:
     gm17_verifier_gadget(
         protoboard<FieldT> &pb,
         const gm17_proof_var<ppT> &proof,
-        const gm17_vk_var<ppT> &vk,
         const gm17_vk_preprocessor<ppT> &vkp,
         const gm17_inputbits_gadget<ppT> &bits,
         const std::string &annotation_prefix
@@ -489,17 +498,17 @@ public:
         m_acc_result(pb, ".acc"),   // psi = \sum_{i=0}^l input_i pvk.query[i]
         m_acc_result_precomp_gadget(pb, m_acc_result, m_acc_result_precomp, FMT(annotation_prefix, ".acc_precompute")),
         m_acc(pb,
-              vk.query[0],
+              vkp.m_query[0],
               {bits.bits.begin(), bits.bits.end()},
               FieldT::size_in_bits(),
-              {vk.query.begin() + 1, vk.query.end()},
+              {vkp.m_query.begin() + 1, vkp.m_query.end()},
               m_acc_result,
               FMT(annotation_prefix, ".acc_gadget")),
 
 
         d(pb, FMT(annotation_prefix, ".d")),
-        d_gadget(pb, proof.A, vk.G_alpha, d, FMT(annotation_prefix, ".d_gadget")),  // A+G^{\alpha}
-        e_gadget(pb, proof.B, vk.H_beta, FMT(annotation_prefix, ".e_gadget")),      // B+H^{\beta}
+        d_gadget(pb, proof.A, vkp.G_alpha, d, FMT(annotation_prefix, ".d_gadget")),  // A+G^{\alpha}
+        e_gadget(pb, proof.B, vkp.H_beta, FMT(annotation_prefix, ".e_gadget")),      // B+H^{\beta}
 
         f(d.negate()),  // negate lhs, will provide same result as test1_l.unitary_inverse()
 

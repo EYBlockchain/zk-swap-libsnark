@@ -260,7 +260,7 @@ void test_gm17_verifier(const std::string &annotation_A, const std::string &anno
     gm17_proof_var<ppT_B> proof(pb, "proof");
     gm17_vk_var<ppT_B> vk(pb, primary_input_size, "vk");
     gm17_vk_preprocessor<ppT_B> vkp(pb, vk, "vkp");
-    gm17_verifier_gadget<ppT_B> verifier(pb, proof, vk, vkp, input_as_bits, "verifier");
+    gm17_verifier_gadget<ppT_B> verifier(pb, proof, vkp, input_as_bits, "verifier");
 
     // Generate constraints, displaying breakdown per function
     PROFILE_CONSTRAINTS(pb, "convert 3 input to bits") {
