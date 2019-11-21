@@ -339,87 +339,6 @@ public:
 };
 
 
-/**
-* Holds the input bits
-*/
-template<typename ppT>
-class gro16_inputbits_gadget : public gadget<libff::Fr<ppT>>
-{
-public:
-    typedef libff::Fr<ppT> FieldT;
-
-    const size_t inputs_count;
-    pb_variable_array<FieldT> bits; // Contiguous array of bits
-
-    gro16_inputbits_gadget(
-        protoboard<FieldT> &pb,
-        const size_t n_inputs,
-        const std::string &annotation_prefix
-    ) :
-        gadget<FieldT>(pb, annotation_prefix),
-        inputs_count(n_inputs)
-    {
-        assert( inputs_count > 0 );
-        const size_t n_input_bits = FieldT::size_in_bits() * inputs_count;
-        bits.allocate(pb, n_input_bits, FMT(annotation_prefix, ".bits"));
-    }
-
-    gro16_inputbits_gadget(
-        protoboard<FieldT> &pb,
-        const pb_variable_array<FieldT> bits,
-        const std::string &annotation_prefix
-    ) :
-        gadget<FieldT>(pb, annotation_prefix),
-        inputs_count(bits.size() / FieldT::size_in_bits()),
-        bits(bits)
-    {
-        assert( inputs_count > 0 );
-        assert( (bits.size() % FieldT::size_in_bits()) == 0 );
-    }
-
-    void generate_r1cs_witness()
-    {
-        // ... nothing to do
-        // ... variables have been passed in via constructor
-        // ... values are assumed to have been populated elsewhere
-    }
-
-    /** Fill input bits from field elements */
-    template<typename T>
-    void generate_r1cs_witness(const std::vector<T> inputs)
-    {
-        assert( inputs_count == inputs.size() );
-
-        int i = 0;
-
-        for (const auto &el : inputs)
-        {
-            const auto el_bits = libff::convert_field_element_to_bit_vector(el, T::size_in_bits());
-            for( const auto b : el_bits ) {
-                this->pb.val(bits[i++]) = (b ? 1 : 0);
-            }
-        }
-    }
-
-    void generate_r1cs_constraints(bool enforce_bitness = true)
-    {
-        if( enforce_bitness )
-        {
-            int i = 0;
-            for( auto &bit_var : bits )
-            {
-                generate_boolean_r1cs_constraint<FieldT>(this->pb, bit_var, FMT(this->annotation_prefix, ".bitness[%d]", i));
-                i += 1;
-            }
-        }
-    }
-
-    void print(const char *prefix="") {
-    }
-};
-
-
-
 template<typename ppT>
 class gro16_verifier_gadget : public gadget<libff::Fr<ppT>> {
 public:
@@ -449,7 +368,7 @@ public:
         protoboard<FieldT> &pb,
         const gro16_proof_var<ppT> &proof,
         const gro16_vk_preprocessor<ppT> &vkp,
-        const gro16_inputbits_gadget<ppT> &bits,
+        const libsnark::pb_variable_array<FieldT> &bits,
         const std::string &annotation_prefix
     ) :
         gadget<FieldT>(pb, annotation_prefix),
@@ -460,7 +379,7 @@ public:
         m_acc_result_precomp_gadget(pb, m_acc_result, m_acc_result_precomp, FMT(annotation_prefix, ".C_precompute")),
         m_acc(pb,
               vkp.m_IC_base,
-              {bits.bits.begin(), bits.bits.end()},
+              bits,
               FieldT::size_in_bits(),
               vkp.m_IC,
               m_acc_result,
