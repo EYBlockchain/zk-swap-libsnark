@@ -12,7 +12,7 @@
 	url = git://github.com/mbbarbosa/libsnark-supercop.git
 [submodule "depends/libff"]
 	path = depends/libff
-	url = git@github.com:EYBlockchain/zk-swap-libff.git
+	url = git://github.com:EYBlockchain/zk-swap-libff.git
 [submodule "depends/libfqfft"]
 	path = depends/libfqfft
-	url = https://github.com/EYBlockchain/zk-swap-libfqfft.git
+	url = git://github.com/EYBlockchain/zk-swap-libfqfft.git

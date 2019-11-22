@@ -170,6 +170,84 @@ void test_hardcoded_verifier(const std::string &annotation_A, const std::string 
            pb.num_constraints(), annotation_B.c_str(), annotation_A.c_str());
 }
 
+
+template<typename ppT>
+class inputbits_gadget : public libsnark::gadget<libff::Fr<ppT>>
+{
+public:
+    typedef libff::Fr<ppT> FieldT;
+
+    const size_t inputs_count;
+    libsnark::pb_variable_array<FieldT> bits; // Contiguous array of bits
+
+    inputbits_gadget(
+        libsnark::protoboard<FieldT> &pb,
+        const size_t n_inputs,
+        const std::string &annotation_prefix
+    ) :
+        libsnark::gadget<FieldT>(pb, annotation_prefix),
+        inputs_count(n_inputs)
+    {
+        assert( inputs_count > 0 );
+        const size_t n_input_bits = FieldT::size_in_bits() * inputs_count;
+        bits.allocate(pb, n_input_bits, FMT(annotation_prefix, ".bits"));
+    }
+
+    inputbits_gadget(
+        libsnark::protoboard<FieldT> &pb,
+        const libsnark::pb_variable_array<FieldT> bits,
+        const std::string &annotation_prefix
+    ) :
+        libsnark::gadget<FieldT>(pb, annotation_prefix),
+        inputs_count(bits.size() / FieldT::size_in_bits()),
+        bits(bits)
+    {
+        assert( inputs_count > 0 );
+        assert( (bits.size() % FieldT::size_in_bits()) == 0 );
+    }
+
+    void generate_r1cs_witness()
+    {
+        // ... nothing to do
+        // ... variables have been passed in via constructor
+        // ... values are assumed to have been populated elsewhere
+    }
+
+    /** Fill input bits from field elements */
+    template<typename T>
+    void generate_r1cs_witness(const std::vector<T> inputs)
+    {
+        assert( inputs_count == inputs.size() );
+
+        int i = 0;
+
+        for (const auto &el : inputs)
+        {
+            const auto el_bits = libff::convert_field_element_to_bit_vector(el, T::size_in_bits());
+            for( const auto b : el_bits ) {
+                this->pb.val(bits[i++]) = (b ? 1 : 0);
+            }
+        }
+    }
+
+    void generate_r1cs_constraints(bool enforce_bitness = true)
+    {
+        if( enforce_bitness )
+        {
+            int i = 0;
+            for( auto &bit_var : bits )
+            {
+                libsnark::generate_boolean_r1cs_constraint<FieldT>(this->pb, bit_var, FMT(this->annotation_prefix, ".bitness[%d]", i));
+                i += 1;
+            }
+        }
+    }
+
+    void print(const char *prefix="") {
+    }
+};
+
+
 template<typename ppT_A, typename ppT_B>
 void test_gro16_verifier(const std::string &annotation_A, const std::string &annotation_B)
 {
@@ -191,11 +269,11 @@ void test_gro16_verifier(const std::string &annotation_A, const std::string &ann
 
     protoboard<FieldT_B> pb;
     // Create gadgets to verify
-    gro16_inputbits_gadget<ppT_B> input_as_bits(pb, primary_input_size, "input_bits");
+    inputbits_gadget<ppT_B> input_as_bits(pb, primary_input_size, "input_bits");
     gro16_proof_var<ppT_B> proof(pb, "proof");
     gro16_vk_var<ppT_B> vk(pb, primary_input_size, "vk");
     gro16_vk_preprocessor<ppT_B> vkp(pb, vk, "vkp");
-    gro16_verifier_gadget<ppT_B> verifier(pb, proof, vkp, input_as_bits, "verifier");
+    gro16_verifier_gadget<ppT_B> verifier(pb, proof, vkp, input_as_bits.bits, "verifier");
 
     // Generate constraints, displaying breakdown per function
     PROFILE_CONSTRAINTS(pb, "convert 3 input to bits") {
@@ -256,11 +334,11 @@ void test_gm17_verifier(const std::string &annotation_A, const std::string &anno
 
     protoboard<FieldT_B> pb;
     // Create gadgets to verify
-    gm17_inputbits_gadget<ppT_B> input_as_bits(pb, primary_input_size, "input_bits");
+    inputbits_gadget<ppT_B> input_as_bits(pb, primary_input_size, "input_bits");
     gm17_proof_var<ppT_B> proof(pb, "proof");
     gm17_vk_var<ppT_B> vk(pb, primary_input_size, "vk");
     gm17_vk_preprocessor<ppT_B> vkp(pb, vk, "vkp");
-    gm17_verifier_gadget<ppT_B> verifier(pb, proof, vkp, input_as_bits, "verifier");
+    gm17_verifier_gadget<ppT_B> verifier(pb, proof, vkp, input_as_bits.bits, "verifier");
 
     // Generate constraints, displaying breakdown per function
     PROFILE_CONSTRAINTS(pb, "convert 3 input to bits") {
